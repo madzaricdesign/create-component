@@ -12,21 +12,6 @@
     </div>
 
     <div class="controls">
-      <div class="card-count-selector">
-        <label for="card-count">Cards to reveal:</label>
-        <select
-          id="card-count"
-          ref="cardCountSelect"
-          v-model="selectedCardCount"
-          @change="onCardCountChange">
-          <option
-            v-for="option in content.cardOptions"
-            :key="option.value"
-            :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
       <button
         id="shuffle-deal-button"
         ref="shuffleDealButton"
@@ -54,7 +39,12 @@ export default {
       cardMargin: 10,
       selectedCardCount: "3",
       cardsToDisplay: 3,
-      version: 1, // Track version number
+      version: 1,
+      hasInitialized: false,
+      apiCallInProgress: false,
+      cardsData: null,
+      initializationInProgress: false,
+      mountCount: 0,
     };
   },
   computed: {
@@ -79,12 +69,29 @@ export default {
       };
     },
   },
-  mounted() {
-    console.log(`[Tarot Card Reader] v${this.version} - Component mounted`);
-    this.selectedCardCount = (this.content.defaultCardOption || 3).toString();
-    this.cardsToDisplay = parseInt(this.selectedCardCount);
+  watch: {
+    "content.defaultCardOption": {
+      handler(newValue) {
+        if (this.isAnimating) return;
 
-    // Set cardback image CSS variable
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Card count changed in editor to ${newValue}`
+        );
+        this.selectedCardCount = (newValue || 3).toString();
+        this.cardsToDisplay = parseInt(this.selectedCardCount);
+
+        this.updatePlaceholderCards();
+        this.adjustGameAreaHeight();
+      },
+      immediate: true,
+    },
+  },
+  mounted() {
+    this.mountCount++;
+    console.log(
+      `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
+    );
+
     document.documentElement.style.setProperty(
       "--card-back-image",
       `url('${
@@ -94,8 +101,20 @@ export default {
     );
 
     this.$nextTick(() => {
-      this.initializeComponent();
+      setTimeout(() => {
+        if (!this.hasInitialized && !this.initializationInProgress) {
+          console.log(
+            `[Tarot Card Reader] v${this.version} - Initializing component after mount (first time)`
+          );
+          this.initializeComponent();
+        } else {
+          console.log(
+            `[Tarot Card Reader] v${this.version} - Component already initialized or initialization in progress, skipping initialization`
+          );
+        }
+      }, 100);
     });
+
     window.addEventListener("resize", this.onResize);
   },
   beforeUnmount() {
@@ -103,35 +122,28 @@ export default {
     window.removeEventListener("resize", this.onResize);
   },
   methods: {
-    // Helper function to darken/lighten colors
     adjustColor(hex, percent) {
-      // Remove the # if it exists
       hex = hex.replace(/^#/, "");
 
-      // Parse the hex color
       let r = parseInt(hex.substring(0, 2), 16);
       let g = parseInt(hex.substring(2, 4), 16);
       let b = parseInt(hex.substring(4, 6), 16);
 
-      // Adjust the color
       r = Math.max(0, Math.min(255, r + percent));
       g = Math.max(0, Math.min(255, g + percent));
       b = Math.max(0, Math.min(255, b + percent));
 
-      // Convert back to hex
       return `#${r.toString(16).padStart(2, "0")}${g
         .toString(16)
         .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
     },
 
-    // Fetch tarot cards from the WordPress API
     async fetchTarotCards() {
       try {
         console.log(
           `[Tarot Card Reader] v${this.version} - Fetching cards from WordPress API...`
         );
 
-        // Use the configurable API URL from ww-config properties
         const apiUrl =
           this.content.apiUrl ||
           "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80";
@@ -149,7 +161,6 @@ export default {
         });
 
         if (!response.ok) {
-          // Log the actual response text to see what's being returned
           const responseText = await response.text();
           console.error(
             `[Tarot Card Reader] v${this.version} - API returned non-OK status:`,
@@ -158,14 +169,12 @@ export default {
           console.error(
             "Response text:",
             responseText.substring(0, 500) + "..."
-          ); // Show first 500 chars
+          );
           throw new Error(`API request failed with status ${response.status}`);
         }
 
-        // Get response text first so we can debug if needed
         const responseText = await response.text();
 
-        // Check if response looks like HTML
         if (
           responseText.trim().startsWith("<!DOCTYPE") ||
           responseText.trim().startsWith("<html")
@@ -177,7 +186,6 @@ export default {
           throw new Error("API returned HTML instead of JSON");
         }
 
-        // Try to parse the response as JSON
         let data;
         try {
           data = JSON.parse(responseText);
@@ -198,19 +206,15 @@ export default {
           data
         );
 
-        // Check if data is not an array or empty
         if (!Array.isArray(data)) {
           console.warn(
             `[Tarot Card Reader] v${this.version} - API response is not an array:`,
             data
           );
-          // If it's still not an array, make it one with a single item
           data = [data];
         }
 
-        // Map the waite-tarot WordPress API structure to our card format
         const tarotCards = data.map((post) => {
-          // Extract card number from toolset-meta if available
           let cardNumber = "0";
           if (
             post["toolset-meta"] &&
@@ -227,7 +231,7 @@ export default {
             title: post.title.rendered || "Unnamed Card",
             cardNumber: cardNumber,
             featuredMediaId: post.featured_media || null,
-            imageUrl: null, // Will be populated by fetchCardImage if needed
+            imageUrl: null,
           };
         });
 
@@ -235,7 +239,6 @@ export default {
           `[Tarot Card Reader] v${this.version} - Processed ${tarotCards.length} cards from API`
         );
 
-        // If we got no cards, try using fallback data
         if (tarotCards.length === 0) {
           console.warn(
             `[Tarot Card Reader] v${this.version} - No cards received from API, using fallback data`
@@ -243,7 +246,6 @@ export default {
           return this.createFallbackCards();
         }
 
-        // Sort cards by card number if needed
         return tarotCards.sort(
           (a, b) => parseInt(a.cardNumber) - parseInt(b.cardNumber)
         );
@@ -259,13 +261,10 @@ export default {
       }
     },
 
-    // Fetch card image from WordPress media library
     async fetchCardImage(mediaId) {
-      // If no media ID, return null
       if (!mediaId) return null;
 
       try {
-        // Extract the base URL from the API URL to build the media endpoint
         const apiUrl =
           this.content.apiUrl ||
           "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80";
@@ -276,7 +275,6 @@ export default {
           `[Tarot Card Reader] v${this.version} - Fetching image from: ${mediaUrl}`
         );
 
-        // Use the WordPress REST API media endpoint
         const response = await fetch(mediaUrl);
 
         if (!response.ok) {
@@ -286,12 +284,10 @@ export default {
           return null;
         }
 
-        // Try to get response as text first for debugging
         const responseText = await response.text();
 
         try {
           const media = JSON.parse(responseText);
-          // WordPress media objects have source_url property for the full image URL
           return media.source_url || null;
         } catch (parseError) {
           console.error(
@@ -321,7 +317,6 @@ export default {
       this.updateCardDimensions();
       this.createDeck();
 
-      // Set initial deck position
       if (this.$refs.deckElement) {
         gsap.set(this.$refs.deckElement, {
           left: "20px",
@@ -342,7 +337,6 @@ export default {
         this.incrementVersion("Handling resize");
         this.updateCardDimensions();
 
-        // Maintain center position if in animation
         if (
           this.$refs.deckElement &&
           this.$refs.deckElement.style.left === "50%"
@@ -352,13 +346,6 @@ export default {
 
         this.adjustGameAreaHeight();
       }
-    },
-
-    onCardCountChange() {
-      this.incrementVersion(`Card count changed to ${this.selectedCardCount}`);
-      this.cardsToDisplay = parseInt(this.selectedCardCount);
-      this.updatePlaceholderCards();
-      this.adjustGameAreaHeight();
     },
 
     updateCardDimensions() {
@@ -392,7 +379,6 @@ export default {
       playerHandElement.innerHTML = "";
       this.deckCards = [];
 
-      // Show loading message
       const loadingMessage = document.createElement("div");
       loadingMessage.textContent = "Loading Tarot Cards...";
       loadingMessage.style.color = "var(--light-accent)";
@@ -404,34 +390,29 @@ export default {
       this.$refs.gameArea.appendChild(loadingMessage);
 
       try {
-        // Fetch tarot cards from WordPress API
         const tarotCards = await this.fetchTarotCards();
 
         if (tarotCards.length === 0) {
           throw new Error("No tarot cards were loaded");
         }
 
-        // Create a sample card for deck display (only need 10 for visual effect)
         const cardCount = Math.min(52, tarotCards.length);
         for (let i = 0; i < cardCount; i++) {
           const tarotCard = tarotCards[i];
           const card = document.createElement("div");
           card.classList.add("card", "card-back");
 
-          // Store tarot card data
           card.dataset.cardId = i;
           card.dataset.tarotId = tarotCard.id;
           card.dataset.cardNumber = tarotCard.cardNumber;
           card.dataset.title = tarotCard.title;
 
-          // Store image URL if available directly or fetch from WordPress media library
           if (tarotCard.imageUrl) {
             card.dataset.imageUrl = tarotCard.imageUrl;
             console.log(
               `Card ${tarotCard.title} has image: ${tarotCard.imageUrl}`
             );
           } else if (tarotCard.featuredMediaId) {
-            // Fetch image from WordPress media library
             const imageUrl = await this.fetchCardImage(
               tarotCard.featuredMediaId
             );
@@ -447,7 +428,6 @@ export default {
             console.warn(`Card ${tarotCard.title} has no image URL`);
           }
 
-          // Create card content with tarot title
           card.innerHTML = `<span style="color: var(--main-dark)">${tarotCard.title}</span>`;
 
           deckElement.appendChild(card);
@@ -456,7 +436,6 @@ export default {
 
         loadingMessage.remove();
 
-        // Initial stacking position with slight offsets
         gsap.set(this.deckCards, {
           x: (i) => Math.random() * 0.5 - 0.25,
           y: (i) => Math.random() * 0.5 - 0.25,
@@ -464,7 +443,6 @@ export default {
           zIndex: (i) => i,
         });
 
-        // Set stack index for visual stacking effect
         this.deckCards.forEach((card, index) => {
           card.style.setProperty("--index", index);
         });
@@ -484,9 +462,7 @@ export default {
       }
     },
 
-    // For WeWeb, we'll use fallback cards instead of API fetching
     createFallbackCards() {
-      // Create basic cards as a fallback
       const suits = ["Cups", "Pentacles", "Swords", "Wands"];
       const values = [
         "Ace",
@@ -507,7 +483,6 @@ export default {
 
       const fallbackCards = [];
 
-      // Major Arcana
       const majorArcana = [
         "The Fool",
         "The Magician",
@@ -533,7 +508,6 @@ export default {
         "The World",
       ];
 
-      // Major Arcana card images (placeholders using free tarot images)
       const majorArcanaImages = [
         "https://www.trustedtarot.com/img/cards/the-fool.png",
         "https://www.trustedtarot.com/img/cards/the-magician.png",
@@ -559,7 +533,6 @@ export default {
         "https://www.trustedtarot.com/img/cards/the-world.png",
       ];
 
-      // Add Major Arcana
       majorArcana.forEach((title, index) => {
         fallbackCards.push({
           id: `major-${index}`,
@@ -570,7 +543,6 @@ export default {
         });
       });
 
-      // Minor Arcana card base URLs
       const suitImageBaseUrls = {
         Cups: "https://www.trustedtarot.com/img/cards/cup-",
         Pentacles: "https://www.trustedtarot.com/img/cards/pentacle-",
@@ -578,14 +550,11 @@ export default {
         Wands: "https://www.trustedtarot.com/img/cards/wand-",
       };
 
-      // Add Minor Arcana
       suits.forEach((suit) => {
         values.forEach((value, index) => {
-          // Convert card value to number for image URL
           let cardNum = index + 1;
           let imageValue = cardNum.toString();
 
-          // Handle court cards
           if (value === "Page") imageValue = "page";
           if (value === "Knight") imageValue = "knight";
           if (value === "Queen") imageValue = "queen";
@@ -622,7 +591,6 @@ export default {
       playerHandElement.innerHTML = "";
       playerHandElement.style.bottom = "20px";
 
-      // Create container for placeholders
       const placeholdersContainer = document.createElement("div");
       placeholdersContainer.style.display = "flex";
       placeholdersContainer.style.flexWrap = "wrap";
@@ -635,7 +603,6 @@ export default {
 
       playerHandElement.appendChild(placeholdersContainer);
 
-      // Create placeholders
       for (let i = 0; i < numCards; i++) {
         const visiblePlaceholder = document.createElement("div");
         visiblePlaceholder.classList.add("rec-card", "card-placeholder");
@@ -655,7 +622,6 @@ export default {
       const maxCardsPerRow = isMobile ? 2 : 5;
       const numRows = Math.ceil(numCards / maxCardsPerRow);
 
-      // Calculate height based on rows
       const rowGap = isMobile ? 25 : 20;
       const padding = 40;
       const titleHeight = isMobile ? 50 : 40;
@@ -677,7 +643,6 @@ export default {
       const numCards = this.cardsToDisplay;
       const gameArea = this.$refs.gameArea;
 
-      // Calculate player hand height
       const isMobile = window.innerWidth < 768;
       const maxCardsPerRow = isMobile ? 2 : 5;
       const numRows = Math.ceil(numCards / maxCardsPerRow);
@@ -689,7 +654,6 @@ export default {
         (numRows - 1) * rowGap +
         padding;
 
-      // Calculate minimum required height
       const deckTopPosition = 20;
       const deckHeight = this.cardHeight;
       const minGapRequired = 60;
@@ -743,7 +707,6 @@ export default {
       const deckElement = this.$refs.deckElement;
       const gameArea = this.$refs.gameArea;
 
-      // Set animation timeout safety
       const animationTimeout = setTimeout(() => {
         if (this.isAnimating) {
           this.isAnimating = false;
@@ -758,32 +721,27 @@ export default {
         }
       }, 10000);
 
-      // Update cards to deal
       this.cardsToDisplay = parseInt(this.selectedCardCount);
       this.cardsToDisplay = Math.min(
         this.cardsToDisplay,
         this.deckCards.length
       );
 
-      // Update layout
       this.adjustGameAreaHeight();
       this.updateCardDimensions();
+
       this.$refs.playerHandElement.innerHTML = "";
       this.createPlaceholders(this.cardsToDisplay);
 
-      // Get exact dimensions before animation
       const gameAreaRect = gameArea.getBoundingClientRect();
       const gameAreaWidth = gameAreaRect.width;
       const gameAreaHeight = gameAreaRect.height;
       const deckTopPosition = Math.max(gameAreaHeight * 0.2, 80);
 
-      // Calculate center position (simpler direct positioning)
       const centerX = gameAreaWidth / 2 - this.cardWidth / 2;
 
-      // Clear any existing transforms and set absolute position
       deckElement.style.transform = "none";
 
-      // Reset deck to starting position with absolute values
       gsap.set(deckElement, {
         position: "absolute",
         left: "20px",
@@ -793,28 +751,35 @@ export default {
         transform: "none",
       });
 
-      // Reset all cards to deck
       this.deckCards.forEach((card) => {
         card.classList.add("card-back");
         card.style.backgroundImage = "";
         deckElement.appendChild(card);
       });
 
-      // Shuffle the cards and update DOM
       const shuffledDeckCards = this.shuffleArray(this.deckCards);
       this.deckCards = shuffledDeckCards;
       this.deckCards.forEach((card) => deckElement.appendChild(card));
       this.incrementVersion("Cards shuffled");
 
-      // Debug logs
       console.log(`[Tarot Card Reader] v${this.version} - Animation values:`, {
         gameAreaWidth,
         gameAreaHeight,
         deckTopPosition,
         centerPosition: centerX + "px",
+        deckSize: this.deckCards.length,
       });
 
-      // Create animation timeline with clear steps
+      const isLargeDeck = this.deckCards.length > 30;
+
+      const animationCards = isLargeDeck
+        ? this.deckCards.slice(0, Math.min(30, this.deckCards.length))
+        : this.deckCards;
+
+      console.log(
+        `[Tarot Card Reader] v${this.version} - Animating ${animationCards.length} cards out of ${this.deckCards.length} total`
+      );
+
       const tl = gsap.timeline({
         defaults: { ease: "power2.inOut" },
         onComplete: () => {
@@ -824,75 +789,96 @@ export default {
         },
       });
 
-      // STEP 1: Move deck to center - simpler direct positioning
       tl.to(deckElement, {
-        duration: 0.7,
-        left: centerX + "px", // Direct center positioning
+        duration: 0.4,
+        left: centerX + "px",
         top: deckTopPosition + "px",
         rotation: 2,
         ease: "power1.inOut",
-        onStart: () => {
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Moving deck to center: ${centerX}px, ${deckTopPosition}px`
-          );
-        },
       });
 
-      // STEP 2: Spread cards
-      tl.to(this.deckCards, {
-        x: (i) => (i % 2 === 0 ? -3 : 3),
-        y: (i) => (i % 3 === 0 ? -2 : 2),
-        stagger: { amount: 0.2, from: "center" },
-        duration: 0.2,
-      });
+      const performShuffle = () => {
+        tl.to(animationCards, {
+          x: (i) => (i % 2 === 0 ? -25 : 25),
+          y: (i) => (i % 3 === 0 ? -15 : 15),
+          stagger: {
+            amount: isLargeDeck ? 0.1 : 0.15,
+            from: "center",
+          },
+          duration: isLargeDeck ? 0.1 : 0.15,
+        });
 
-      // STEP 3: Shuffle animation
-      tl.add(() => {
-        // Split deck for riffle shuffle
-        const halfDeckSize = Math.floor(this.deckCards.length / 2);
-        const firstHalf = this.deckCards.slice(0, halfDeckSize);
-        const secondHalf = this.deckCards.slice(halfDeckSize);
-
-        // Move first half left
-        tl.to(firstHalf, {
-          x: (i) => -40,
-          y: (i) => 10 + Math.sin(i * 0.3) * 5,
-          rotation: -5,
-          stagger: { amount: 0.3, from: "start", ease: "power1.inOut" },
-          duration: 0.4,
-          ease: "back.out(1.2)",
-        })
-          // Move second half right (simultaneously)
-          .to(
-            secondHalf,
-            {
-              x: (i) => 40,
-              y: (i) => 10 + Math.sin(i * 0.3) * 5,
-              rotation: 5,
-              stagger: { amount: 0.3, from: "start", ease: "power1.inOut" },
-              duration: 0.4,
-              ease: "back.out(1.2)",
-            },
-            "<"
-          )
-          // Interleave cards (riffle)
-          .to(this.deckCards, {
-            x: (i) => Math.sin(i * 0.5) * 3,
-            y: 0,
-            rotation: (i) => Math.sin(i * 0.8) * 1,
-            stagger: { amount: 0.5, from: "random", ease: "power3.inOut" },
-            duration: 0.6,
-            ease: "elastic.out(0.5, 0.3)",
-          })
-          // Final position adjustment
-          .to(this.deckCards, {
+        if (isLargeDeck) {
+          tl.to(animationCards, {
+            x: (i) => Math.sin(i * 0.5) * 20,
+            y: (i) => Math.sin(i * 0.7) * 15,
+            rotation: (i) => Math.sin(i * 0.8) * 5,
+            stagger: { amount: 0.2, from: "random", ease: "power2.inOut" },
+            duration: 0.3,
+            ease: "power2.inOut",
+          }).to(animationCards, {
             x: 0,
             y: 0,
             rotation: 0,
-            duration: 0.3,
+            duration: 0.2,
             ease: "power2.inOut",
           });
+        } else {
+          const halfDeckSize = Math.floor(animationCards.length / 2);
+          const firstHalf = animationCards.slice(0, halfDeckSize);
+          const secondHalf = animationCards.slice(halfDeckSize);
+
+          tl.to(firstHalf, {
+            x: (i) => -200,
+            y: (i) => 40 + Math.sin(i * 0.3) * 30,
+            rotation: -15,
+            stagger: { amount: 0.2, from: "start", ease: "power1.inOut" },
+            duration: 0.3,
+            ease: "back.out(1.2)",
+          })
+            .to(
+              secondHalf,
+              {
+                x: (i) => 200,
+                y: (i) => 40 + Math.sin(i * 0.3) * 30,
+                rotation: 15,
+                stagger: { amount: 0.2, from: "start", ease: "power1.inOut" },
+                duration: 0.3,
+                ease: "back.out(1.2)",
+              },
+              "<"
+            )
+            .to(animationCards, {
+              x: (i) => Math.sin(i * 0.5) * 25,
+              y: (i) => Math.sin(i * 0.7) * 10,
+              rotation: (i) => Math.sin(i * 0.8) * 8,
+              stagger: { amount: 0.4, from: "random", ease: "power3.inOut" },
+              duration: 0.4,
+              ease: "elastic.out(0.5, 0.3)",
+            })
+            .to(animationCards, {
+              x: 0,
+              y: 0,
+              rotation: 0,
+              duration: 0.2,
+              ease: "power2.inOut",
+            });
+        }
+      };
+
+      performShuffle();
+
+      tl.to(deckElement, {
+        y: "-=10",
+        duration: 0.1,
+        ease: "power1.inOut",
+      }).to(deckElement, {
+        y: "+=10",
+        duration: 0.1,
+        ease: "power1.out",
       });
+
+      performShuffle();
     },
 
     dealCards() {
@@ -904,7 +890,6 @@ export default {
       )
         return;
 
-      // Get placeholders
       const playerHandElement = this.$refs.playerHandElement;
       const placeholderContainer = playerHandElement.querySelector("div");
       if (!placeholderContainer) return;
@@ -912,21 +897,17 @@ export default {
       const placeholders =
         placeholderContainer.querySelectorAll(".card-placeholder");
 
-      // Get top cards from deck
       const cardsToDealElements = this.deckCards.slice(-this.cardsToDisplay);
-      this.deckCards.splice(-this.cardsToDisplay); // Remove from deck array
+      this.deckCards.splice(-this.cardsToDisplay);
 
-      // Update card dimensions
       this.updateCardDimensions();
 
-      // Get positions
       const deckElement = this.$refs.deckElement;
       const gameArea = this.$refs.gameArea;
       const deckRect = deckElement.getBoundingClientRect();
       const gameAreaRect = gameArea.getBoundingClientRect();
       const containerRect = placeholderContainer.getBoundingClientRect();
 
-      // Animation timeline
       const dealTl = gsap.timeline({
         onComplete: () => {
           this.incrementVersion("Card dealing complete, moving deck back");
@@ -934,14 +915,12 @@ export default {
         },
       });
 
-      // Deal each card (FLIP animation technique)
       cardsToDealElements.forEach((card, i) => {
         if (!placeholders[i]) return;
 
         const targetPlaceholder = placeholders[i];
-        const staggerDelay = i * 0.12;
+        const staggerDelay = i * 0.06;
 
-        // STEP 1: FIRST - get initial position at deck
         const firstBounds = card.getBoundingClientRect();
         const first = {
           top: firstBounds.top - gameAreaRect.top,
@@ -950,8 +929,6 @@ export default {
           height: firstBounds.height,
         };
 
-        // STEP 2: LAST - position card over placeholder
-        const placeholderBounds = targetPlaceholder.getBoundingClientRect();
         placeholderContainer.appendChild(card);
 
         gsap.set(card, {
@@ -972,7 +949,6 @@ export default {
           height: lastBounds.height,
         };
 
-        // STEP 3: INVERT - calculate deltas
         const deltaX = first.left - last.left;
         const deltaY = first.top - last.top;
 
@@ -983,21 +959,19 @@ export default {
           zIndex: 100 + i,
         });
 
-        // STEP 4: PLAY - animate to final position
         dealTl.to(card, {
-          duration: 0.5,
+          duration: 0.25,
           x: 0,
           y: 0,
           ease: "power2.out",
           delay: staggerDelay,
         });
 
-        // Add card flip animation
         dealTl.to(
           card,
           {
             rotationY: 180,
-            duration: 0.3,
+            duration: 0.15,
             ease: "power1.inOut",
             onStart: function () {
               gsap.set(card, {
@@ -1005,24 +979,25 @@ export default {
                 transformOrigin: "center center",
               });
             },
-            onComplete: function () {
-              // Reveal card face
+            onComplete: () => {
               card.classList.remove("card-back");
               card.classList.add("card-face");
 
-              // Apply image URL if available
               if (card.dataset.imageUrl) {
                 card.style.backgroundImage = `url('${card.dataset.imageUrl}')`;
                 card.style.backgroundSize = "contain";
                 card.style.backgroundPosition = "center";
                 card.style.backgroundRepeat = "no-repeat";
-                card.style.backgroundColor = "#f8f0fc";
+                card.style.backgroundColor =
+                  this.content.lightColor || "#f8f0fc";
               } else {
-                // Fallback color if no image
-                card.style.backgroundColor = "#f8f0fc";
+                card.style.backgroundColor =
+                  this.content.lightColor || "#f8f0fc";
               }
 
-              // Move title below card
+              card.style.borderColor =
+                this.content.deckBorderColor || "#9e15bf";
+
               const titleElement = card.querySelector("span");
               if (titleElement) {
                 card.removeChild(titleElement);
@@ -1031,14 +1006,14 @@ export default {
                 titleContainer.classList.add("card-title");
                 titleContainer.textContent = titleElement.textContent;
 
-                // Style title
                 titleContainer.style.position = "absolute";
                 titleContainer.style.top = "100%";
                 titleContainer.style.left = "0";
                 titleContainer.style.whiteSpace = "normal";
                 titleContainer.style.width = "100%";
                 titleContainer.style.textAlign = "center";
-                titleContainer.style.color = "#f8f0fc";
+                titleContainer.style.color =
+                  this.content.lightColor || "#f8f0fc";
                 titleContainer.style.fontWeight = "bold";
                 titleContainer.style.fontSize = "0.9em";
                 titleContainer.style.textShadow = "0 0 4px rgba(0, 0, 0, 0.8)";
@@ -1046,35 +1021,32 @@ export default {
                 card.appendChild(titleContainer);
               }
 
-              // Reset rotation
               gsap.set(card, { rotationY: 0 });
             },
           },
           ">"
         );
 
-        // Add subtle "settle" effect
         dealTl.to(
           card,
           {
             boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
-            duration: 0.1,
-            delay: -0.1,
+            duration: 0.05,
+            delay: -0.05,
           },
-          ">-0.1"
+          ">-0.05"
         );
 
         dealTl.to(card, {
           boxShadow: "2px 2px 5px rgba(0,0,0,0.3)",
-          duration: 0.2,
+          duration: 0.1,
         });
       });
 
-      // Flash effect on all cards
       dealTl.add(() => {
         gsap.to(cardsToDealElements, {
           boxShadow: "0 0 8px rgba(255,255,255,0.7)",
-          duration: 0.15,
+          duration: 0.1,
           yoyo: true,
           repeat: 1,
         });
@@ -1087,7 +1059,6 @@ export default {
       const playerHandElement = this.$refs.playerHandElement;
       playerHandElement.innerHTML = "";
 
-      // Create container for placeholders
       const placeholdersContainer = document.createElement("div");
       placeholdersContainer.style.display = "flex";
       placeholdersContainer.style.flexWrap = "wrap";
@@ -1096,20 +1067,18 @@ export default {
       placeholdersContainer.style.position = "absolute";
       placeholdersContainer.style.bottom = "0";
       placeholdersContainer.style.left = "0";
-      placeholdersContainer.style.gap = "15px"; // Consistent gap
+      placeholdersContainer.style.gap = "15px";
 
       playerHandElement.appendChild(placeholdersContainer);
 
-      // Create visible placeholders
       for (let i = 0; i < numCards; i++) {
         const visiblePlaceholder = document.createElement("div");
         visiblePlaceholder.classList.add("rec-card", "card-placeholder");
         visiblePlaceholder.style.position = "relative";
-        visiblePlaceholder.style.margin = "5px 5px 25px 5px"; // 25px bottom margin for titles
+        visiblePlaceholder.style.margin = "5px 5px 25px 5px";
         placeholdersContainer.appendChild(visiblePlaceholder);
       }
 
-      // Set height for hand area
       this.updateHandAreaHeight(numCards);
       console.log(
         `[Tarot Card Reader] v${this.version} - Created ${numCards} placeholders`
@@ -1122,11 +1091,10 @@ export default {
 
       const deckElement = this.$refs.deckElement;
 
-      // Clear any transform properties before animating
       gsap.set(deckElement, { transform: "none" });
 
       gsap.to(deckElement, {
-        duration: 0.7,
+        duration: 0.4,
         left: "20px",
         top: "20px",
         rotation: 0,
@@ -1136,17 +1104,15 @@ export default {
           this.$refs.shuffleDealButton.disabled = false;
           this.$refs.shuffleDealButton.classList.remove("shuffling");
 
-          // Make sure position is reset cleanly
           gsap.set(deckElement, {
             transform: "none",
             rotation: 0,
           });
 
-          // Final settling animation
           gsap.fromTo(
             deckElement,
             { top: "17px" },
-            { top: "20px", duration: 0.3, ease: "elastic.out(2, 0.3)" }
+            { top: "20px", duration: 0.2, ease: "elastic.out(2, 0.3)" }
           );
 
           this.incrementVersion("Animation sequence complete");
@@ -1154,27 +1120,22 @@ export default {
       });
     },
 
-    // Preload card images to ensure they display when cards are dealt
     preloadCardImages() {
       this.incrementVersion("Preloading card images");
 
-      // Preload whatever images we already have in the deck cards
       const imageUrls = [];
 
-      // Get image URLs from deck cards first (which might have API-loaded images)
       this.deckCards.forEach((card) => {
         if (card.dataset.imageUrl) {
           imageUrls.push(card.dataset.imageUrl);
         }
       });
 
-      // If we have deck cards with images, preload them
       if (imageUrls.length > 0) {
         console.log(
           `[Tarot Card Reader] v${this.version} - Preloading ${imageUrls.length} card images`
         );
 
-        // Create an array of promises for preloading
         const imagePromises = imageUrls.map((url) => {
           return new Promise((resolve, reject) => {
             const img = new Image();
@@ -1184,7 +1145,6 @@ export default {
           });
         });
 
-        // Use Promise.allSettled to handle all image loading attempts
         Promise.allSettled(imagePromises).then((results) => {
           const loadedCount = results.filter(
             (r) => r.status === "fulfilled"
@@ -1253,8 +1213,8 @@ export default {
   top: 20px;
   left: 20px;
   z-index: 50;
-  transition: none; /* Prevent CSS transitions from interfering with GSAP */
-  will-change: transform, left, top; /* Hint to browser about properties that will animate */
+  transition: none;
+  will-change: transform, left, top;
 }
 
 .deck-area .card {
@@ -1511,28 +1471,6 @@ export default {
   align-items: center;
   gap: 10px;
   margin-bottom: 20px;
-}
-
-.card-count-selector {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #f8f0fc;
-  font-weight: bold;
-}
-
-select {
-  padding: 5px;
-  border-radius: 5px;
-  background-color: #9e15bf;
-  color: white;
-  border: none;
-  cursor: pointer;
-}
-
-select:focus {
-  outline: none;
-  box-shadow: 0 0 5px #4ac6d2;
 }
 
 .card-back {

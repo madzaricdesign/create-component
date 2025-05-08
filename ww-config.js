@@ -7,48 +7,82 @@ export default {
     },
   },
   properties: {
-    mainColor: {
+    backgroundColor: {
       label: {
-        en: "Main Color",
-      },
-      type: "Color",
-      defaultValue: "#9e15bf",
-    },
-    secondaryColor: {
-      label: {
-        en: "Secondary Color",
-      },
-      type: "Color",
-      defaultValue: "#4ac6d2",
-    },
-    darkColor: {
-      label: {
-        en: "Dark Background Color",
+        en: "Background Color",
       },
       type: "Color",
       defaultValue: "#38074a",
+      section: "Colors",
+      description: {
+        en: "Controls the background of the component",
+      },
+    },
+    deckBorderColor: {
+      label: {
+        en: "Deck Border Color",
+      },
+      type: "Color",
+      defaultValue: "#9e15bf",
+      section: "Colors",
+      description: {
+        en: "Controls the border color of the deck",
+      },
+    },
+    placeholderBorderColor: {
+      label: {
+        en: "Result Placeholder Border Color",
+      },
+      type: "Color",
+      defaultValue: "#4ac6d2",
+      section: "Colors",
+      description: {
+        en: "Controls the border color of the result placeholder cards",
+      },
+    },
+    placeholderBackgroundColor: {
+      label: {
+        en: "Result Placeholder Background Color",
+      },
+      type: "Color",
+      defaultValue: "transparent",
+      section: "Colors",
+      description: {
+        en: "Controls the background color of the result placeholder cards",
+      },
+    },
+    buttonBackgroundColor: {
+      label: {
+        en: "Button Background Color",
+      },
+      type: "Color",
+      defaultValue: "#9e15bf",
+      section: "Colors",
+      description: {
+        en: "Controls the background color of the shuffle and reveal button",
+      },
+    },
+    buttonTextColor: {
+      label: {
+        en: "Button Text Color",
+      },
+      type: "Color",
+      defaultValue: "#ffffff",
+      section: "Colors",
+      description: {
+        en: "Controls the text color of the shuffle and reveal button",
+      },
     },
     lightColor: {
       label: {
-        en: "Light Text Color",
+        en: "Card Text Color",
       },
       type: "Color",
       defaultValue: "#f8f0fc",
-    },
-    title: {
-      label: {
-        en: "Title",
+      section: "Colors",
+      description: {
+        en: "Controls the text color on cards",
       },
-      type: "Text",
-      defaultValue: "Mystic Tarot Reading",
-    },
-    introText: {
-      label: {
-        en: "Introduction Text",
-      },
-      type: "Text",
-      defaultValue:
-        "Focus on your question as the cards are shuffled and revealed from the Rider-Waite deck",
     },
     cardbackImageUrl: {
       label: {
@@ -57,6 +91,7 @@ export default {
       type: "Text",
       defaultValue:
         "https://b145kh3.myrdbx.io/wp-content/uploads/2025/02/tarot-karte-ziehen-online-179x300-1.jpg",
+      section: "Images",
     },
     apiUrl: {
       label: {
@@ -65,25 +100,28 @@ export default {
       type: "Text",
       defaultValue:
         "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80",
-    },
-    cardOptions: {
-      label: {
-        en: "Card Number Options",
+      section: "Data",
+      description: {
+        en: "API endpoint for tarot card data (fetches all cards in the deck)",
       },
-      type: "Array",
-      defaultValue: [
-        { value: "1", label: "1 Card (Simple Reading)" },
-        { value: "3", label: "3 Cards (Past, Present, Future)" },
-        { value: "6", label: "6 Cards (Celtic Cross Simplified)" },
-        { value: "9", label: "9 Cards (Extended Reading)" },
-      ],
     },
     defaultCardOption: {
       label: {
-        en: "Default Number of Cards",
+        en: "Number of Cards",
       },
       type: "Number",
+      options: {
+        min: 1,
+        max: 9,
+        step: 1,
+      },
       defaultValue: 3,
+      section: "Cards",
+      bindable: true,
+      required: true,
+      description: {
+        en: "The number of tarot cards that will be revealed (1-9)",
+      },
     },
     buttonText: {
       label: {
@@ -91,6 +129,7 @@ export default {
       },
       type: "Text",
       defaultValue: "Shuffle & Reveal",
+      section: "Content",
     },
   },
 };
