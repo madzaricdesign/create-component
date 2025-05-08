@@ -1,4 +1,6 @@
 export default {
+  name: "tarot-card-reader",
+  version: "0.1.0",
   editor: {
     label: {
       en: "Tarot Card Reader",
