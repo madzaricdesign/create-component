@@ -84,6 +84,33 @@ export default {
         en: "Controls the text color on cards",
       },
     },
+    titleColor: {
+      label: {
+        en: "Title Text Color",
+      },
+      type: "Color",
+      defaultValue: "#f8f0fc",
+      section: "Colors",
+      description: {
+        en: "Controls the text color of the card titles below the cards",
+      },
+    },
+    titleFontSize: {
+      label: {
+        en: "Title Font Size",
+      },
+      type: "Number",
+      options: {
+        min: 8,
+        max: 24,
+        step: 1,
+      },
+      defaultValue: 14,
+      section: "Typography",
+      description: {
+        en: "Controls the font size of card titles below the cards (in pixels)",
+      },
+    },
     cardbackImageUrl: {
       label: {
         en: "Card Back Image URL",

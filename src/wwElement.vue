@@ -1,8 +1,6 @@
 <template>
-  <div class="tarot-reader">
-    <h1 class="tarot-title">{{ content.title }}</h1>
-    <p class="tarot-intro">{{ content.introText }}</p>
-    <div class="game-area" ref="gameArea">
+  <div class="tarot-reader" :style="rootStyles">
+    <div class="game-area" ref="gameArea" :style="gameAreaStyles">
       <div class="deck-area" id="deck" ref="deckElement">
         <!-- Cards will be added here by JS -->
       </div>
@@ -45,28 +43,87 @@ export default {
       cardsData: null,
       initializationInProgress: false,
       mountCount: 0,
+      resizeTimeout: null,
     };
   },
   computed: {
     cssVars() {
       return {
-        "--main-color": this.content.mainColor || "#9e15bf",
-        "--secondary-color": this.content.secondaryColor || "#4ac6d2",
-        "--main-dark": this.adjustColor(
-          this.content.mainColor || "#9e15bf",
-          -20
-        ),
-        "--secondary-dark": this.adjustColor(
-          this.content.secondaryColor || "#4ac6d2",
-          -20
-        ),
-        "--light-accent": this.content.lightColor || "#f8f0fc",
-        "--dark-accent": this.content.darkColor || "#38074a",
+        "--deck-border-color": this.content.deckBorderColor || "#9e15bf",
+        "--placeholder-border-color":
+          this.content.placeholderBorderColor || "#4ac6d2",
+        "--placeholder-background-color":
+          this.content.placeholderBackgroundColor || "transparent",
+        "--button-background-color":
+          this.content.buttonBackgroundColor || "#9e15bf",
+        "--button-text-color": this.content.buttonTextColor || "#ffffff",
+        "--card-text-color": this.content.lightColor || "#f8f0fc",
+        "--background-color": this.content.backgroundColor || "#38074a",
         "--card-width": `min(120px, 20vw)`,
         "--card-height": `min(168px, 28vw)`,
         "--card-margin": `min(10px, 2vw)`,
         "--font-size": `min(18px, 3.5vw)`,
+        "--title-font-size": this.content.titleFontSize
+          ? `${this.content.titleFontSize}px`
+          : `min(14px, 2.8vw)`,
+        "--title-color": this.content.titleColor || "#f8f0fc",
       };
+    },
+    rootStyles() {
+      return {
+        "--deck-border-color": this.content.deckBorderColor || "#9e15bf",
+        "--placeholder-border-color":
+          this.content.placeholderBorderColor || "#4ac6d2",
+        "--placeholder-background-color":
+          this.content.placeholderBackgroundColor || "transparent",
+        "--button-background-color":
+          this.content.buttonBackgroundColor || "#9e15bf",
+        "--button-text-color": this.content.buttonTextColor || "#ffffff",
+        "--card-text-color": this.content.lightColor || "#f8f0fc",
+        "--background-color": this.content.backgroundColor || "#38074a",
+        "--card-width": `min(120px, 20vw)`,
+        "--card-height": `min(168px, 28vw)`,
+        "--card-margin": `min(10px, 2vw)`,
+        "--font-size": `min(18px, 3.5vw)`,
+        "--title-font-size": this.content.titleFontSize
+          ? `${this.content.titleFontSize}px`
+          : `min(14px, 2.8vw)`,
+        "--title-color": this.content.titleColor || "#f8f0fc",
+        backgroundColor: this.content.backgroundColor || "#38074a",
+        height: this.content.height ? this.content.height + "px" : "100%",
+      };
+    },
+    gameAreaStyles() {
+      const baseStyles = {
+        position: "relative",
+        width: "100%",
+        minHeight: "300px",
+        height: `calc(100% - 80px)`,
+        border: `2px solid ${this.content.deckBorderColor || "#9e15bf"}`,
+        background: `linear-gradient(135deg, ${this.adjustColor(
+          this.content.backgroundColor || "#38074a",
+          5
+        )}, ${this.adjustColor(
+          this.content.backgroundColor || "#38074a",
+          -15
+        )})`,
+        borderRadius: "10px",
+        boxShadow:
+          "0 5px 15px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 0, 0, 0.2) inset",
+        marginBottom: "20px",
+        overflow: "hidden",
+        transformStyle: "preserve-3d",
+        perspective: "1000px",
+        boxSizing: "border-box",
+      };
+
+      // Add height from content if available
+      if (this.content.height) {
+        baseStyles.height = this.content.height + "px";
+        baseStyles.minHeight = this.content.height + "px";
+      }
+
+      return baseStyles;
     },
   },
   watch: {
@@ -81,7 +138,69 @@ export default {
         this.cardsToDisplay = parseInt(this.selectedCardCount);
 
         this.updatePlaceholderCards();
-        this.adjustGameAreaHeight();
+      },
+      immediate: true,
+    },
+    "content.titleColor": {
+      handler(newValue) {
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Title color changed to: ${newValue}`
+        );
+        this.updateAllStyles();
+        this.updateTitleStyles();
+      },
+      immediate: true,
+    },
+    "content.titleFontSize": {
+      handler(newValue) {
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Title font size changed to: ${newValue}`
+        );
+        this.updateAllStyles();
+        this.updateTitleStyles();
+      },
+      immediate: true,
+    },
+    "content.backgroundColor": {
+      handler() {
+        this.updateAllStyles();
+      },
+      immediate: true,
+    },
+    "content.deckBorderColor": {
+      handler() {
+        this.updateAllStyles();
+      },
+      immediate: true,
+    },
+    "content.placeholderBorderColor": {
+      handler() {
+        this.updateAllStyles();
+      },
+      immediate: true,
+    },
+    "content.buttonBackgroundColor": {
+      handler() {
+        this.updateAllStyles();
+      },
+      immediate: true,
+    },
+    "content.buttonTextColor": {
+      handler() {
+        this.updateAllStyles();
+      },
+      immediate: true,
+    },
+    "content.lightColor": {
+      handler() {
+        this.updateAllStyles();
+        this.updateTitleStyles();
+      },
+      immediate: true,
+    },
+    "content.cardbackImageUrl": {
+      handler() {
+        this.updateAllStyles();
       },
       immediate: true,
     },
@@ -92,13 +211,8 @@ export default {
       `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
     );
 
-    document.documentElement.style.setProperty(
-      "--card-back-image",
-      `url('${
-        this.content.cardbackImageUrl ||
-        "https://b145kh3.myrdbx.io/wp-content/uploads/2025/02/tarot-karte-ziehen-online-179x300-1.jpg"
-      }')`
-    );
+    // Update all CSS variables
+    this.updateAllStyles();
 
     this.$nextTick(() => {
       setTimeout(() => {
@@ -115,11 +229,40 @@ export default {
       }, 100);
     });
 
-    window.addEventListener("resize", this.onResize);
+    // Simple resize handler without debounce or additional calls
+    this.handleResize = () => {
+      try {
+        if (!this.isAnimating) {
+          this.updateCardDimensions();
+          this.updateAllStyles();
+
+          if (this.$refs.playerHandElement) {
+            // Only update placeholders if no cards have been dealt
+            const dealtCards =
+              this.$refs.playerHandElement.querySelectorAll(".card-face");
+            if (!dealtCards || dealtCards.length === 0) {
+              this.updatePlaceholderCards();
+            } else {
+              // Fix styling for already dealt cards
+              this.fixCardAppearanceAfterResize();
+            }
+          }
+        }
+      } catch (err) {
+        console.error("[Tarot Card Reader] - Resize handler error:", err);
+      }
+    };
+
+    window.addEventListener("resize", this.handleResize);
   },
   beforeUnmount() {
     console.log(`[Tarot Card Reader] v${this.version} - Component unmounting`);
-    window.removeEventListener("resize", this.onResize);
+    if (this.handleResize) {
+      window.removeEventListener("resize", this.handleResize);
+    }
+    if (this.resizeTimeout) {
+      clearTimeout(this.resizeTimeout);
+    }
   },
   methods: {
     adjustColor(hex, percent) {
@@ -314,51 +457,103 @@ export default {
 
     initializeComponent() {
       this.incrementVersion("Initializing component");
-      this.updateCardDimensions();
-      this.createDeck();
 
-      if (this.$refs.deckElement) {
-        gsap.set(this.$refs.deckElement, {
-          left: "20px",
-          top: "20px",
-          x: 0,
-          y: 0,
-        });
+      if (this.hasInitialized) {
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Component already initialized, will refresh data`
+        );
       }
 
-      this.updatePlaceholderCards();
-      this.adjustGameAreaHeight();
-      this.preloadCardImages();
-      this.incrementVersion("Component initialization complete");
-    },
+      if (
+        !this.$refs.deckElement ||
+        !this.$refs.playerHandElement ||
+        !this.$refs.gameArea
+      ) {
+        console.warn(
+          "[Tarot Card Reader] - DOM refs not ready during initialization"
+        );
 
-    onResize() {
-      if (!this.isAnimating) {
-        this.incrementVersion("Handling resize");
-        this.updateCardDimensions();
+        setTimeout(() => {
+          if (
+            this.$refs.deckElement &&
+            this.$refs.playerHandElement &&
+            this.$refs.gameArea
+          ) {
+            console.log(
+              "[Tarot Card Reader] - DOM refs now available, retrying initialization"
+            );
+            this.initializationInProgress = false;
+            this.initializeComponent();
+          } else {
+            console.error(
+              "[Tarot Card Reader] - DOM refs still not available after delay"
+            );
+            this.initializationInProgress = false;
+          }
+        }, 200);
 
-        if (
-          this.$refs.deckElement &&
-          this.$refs.deckElement.style.left === "50%"
-        ) {
-          gsap.set(this.$refs.deckElement, { x: "-50%" });
+        return;
+      }
+
+      this.updateCardDimensions();
+
+      const deckCreated = this.createDeck();
+
+      if (deckCreated) {
+        this.hasInitialized = true;
+        this.initializationInProgress = false;
+
+        if (this.$refs.deckElement) {
+          gsap.set(this.$refs.deckElement, {
+            left: "20px",
+            top: "20px",
+            x: 0,
+            y: 0,
+          });
         }
 
-        this.adjustGameAreaHeight();
+        this.updatePlaceholderCards();
+        this.preloadCardImages();
+        this.incrementVersion("Component initialization complete");
+      } else {
+        console.warn(
+          "[Tarot Card Reader] - Deck creation failed during initialization"
+        );
+        this.initializationInProgress = false;
       }
     },
 
     updateCardDimensions() {
-      const computedStyle = getComputedStyle(document.documentElement);
-      this.cardWidth =
-        parseInt(computedStyle.getPropertyValue("--card-width")) || 120;
-      this.cardHeight =
-        parseInt(computedStyle.getPropertyValue("--card-height")) || 168;
-      this.cardMargin =
-        parseInt(computedStyle.getPropertyValue("--card-margin")) || 10;
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Card dimensions updated: ${this.cardWidth}x${this.cardHeight}`
-      );
+      try {
+        const computedStyle = getComputedStyle(document.documentElement);
+        this.cardWidth =
+          parseInt(computedStyle.getPropertyValue("--card-width")) || 120;
+        this.cardHeight =
+          parseInt(computedStyle.getPropertyValue("--card-height")) || 168;
+        this.cardMargin =
+          parseInt(computedStyle.getPropertyValue("--card-margin")) || 10;
+
+        // Update deck position if needed
+        if (this.$refs.deckElement && !this.isAnimating) {
+          gsap.set(this.$refs.deckElement, {
+            width: "var(--card-width)",
+            height: "var(--card-height)",
+          });
+        }
+
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Card dimensions updated: ${this.cardWidth}x${this.cardHeight}`
+        );
+      } catch (err) {
+        console.error(
+          "[Tarot Card Reader] - Error updating card dimensions:",
+          err
+        );
+        // Set fallback values
+        this.cardWidth = 120;
+        this.cardHeight = 168;
+        this.cardMargin = 10;
+      }
     },
 
     async createDeck() {
@@ -401,6 +596,9 @@ export default {
           const tarotCard = tarotCards[i];
           const card = document.createElement("div");
           card.classList.add("card", "card-back");
+          // Set exact dimensions to match CSS variables
+          card.style.width = "var(--card-width)";
+          card.style.height = "var(--card-height)";
 
           card.dataset.cardId = i;
           card.dataset.tarotId = tarotCard.id;
@@ -600,6 +798,7 @@ export default {
       placeholdersContainer.style.bottom = "0";
       placeholdersContainer.style.left = "0";
       placeholdersContainer.style.gap = "15px";
+      placeholdersContainer.style.paddingBottom = "10px";
 
       playerHandElement.appendChild(placeholdersContainer);
 
@@ -607,7 +806,7 @@ export default {
         const visiblePlaceholder = document.createElement("div");
         visiblePlaceholder.classList.add("rec-card", "card-placeholder");
         visiblePlaceholder.style.position = "relative";
-        visiblePlaceholder.style.margin = "5px 5px 25px 5px";
+        visiblePlaceholder.style.margin = "5px";
         placeholdersContainer.appendChild(visiblePlaceholder);
       }
 
@@ -615,66 +814,45 @@ export default {
     },
 
     updateHandAreaHeight(numCards) {
-      if (!this.$refs.playerHandElement) return;
+      if (!this.$refs.playerHandElement || !this.$refs.gameArea) return;
 
       const playerHandElement = this.$refs.playerHandElement;
-      const isMobile = window.innerWidth < 768;
-      const maxCardsPerRow = isMobile ? 2 : 5;
-      const numRows = Math.ceil(numCards / maxCardsPerRow);
-
-      const rowGap = isMobile ? 25 : 20;
-      const padding = 40;
-      const titleHeight = isMobile ? 50 : 40;
-      const totalHeight =
-        numRows * (this.cardHeight + titleHeight) +
-        (numRows - 1) * rowGap +
-        padding;
-
-      playerHandElement.style.minHeight = `${totalHeight}px`;
-      playerHandElement.style.height = `${totalHeight}px`;
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Hand area height updated: ${totalHeight}px`
-      );
-    },
-
-    adjustGameAreaHeight() {
-      if (!this.$refs.gameArea) return;
-
-      const numCards = this.cardsToDisplay;
       const gameArea = this.$refs.gameArea;
+      const gameAreaHeight = gameArea.clientHeight;
 
       const isMobile = window.innerWidth < 768;
       const maxCardsPerRow = isMobile ? 2 : 5;
       const numRows = Math.ceil(numCards / maxCardsPerRow);
+
+      // Calculate height based on rows
       const rowGap = isMobile ? 25 : 20;
       const padding = 40;
       const titleHeight = isMobile ? 50 : 40;
-      const playerHandHeight =
-        numRows * (this.cardHeight + titleHeight) +
+      const titleBottomSpace = 30; // Extra space for title below card
+
+      // Calculate needed height for cards
+      const neededCardHeight =
+        numRows * (this.cardHeight + titleHeight + titleBottomSpace) +
         (numRows - 1) * rowGap +
         padding;
 
+      // Reserve space for deck at top and ensure minimum spacing
       const deckTopPosition = 20;
       const deckHeight = this.cardHeight;
       const minGapRequired = 60;
-      const bottomMargin = 30;
 
-      const minHeightRequired =
-        deckTopPosition +
-        deckHeight +
-        minGapRequired +
-        playerHandHeight +
-        bottomMargin;
-      const maxAllowedHeight = Math.max(
-        minHeightRequired,
-        window.innerHeight * 0.85
+      // Calculate available space for player hand
+      const availableSpace = Math.max(
+        gameAreaHeight - deckTopPosition - deckHeight - minGapRequired,
+        neededCardHeight
       );
 
-      gameArea.style.height = `${maxAllowedHeight}px`;
+      playerHandElement.style.minHeight = `${availableSpace}px`;
+      playerHandElement.style.height = `${availableSpace}px`;
+
       console.log(
-        `[Tarot Card Reader] v${this.version} - Game area height adjusted: ${maxAllowedHeight}px`
+        `[Tarot Card Reader] v${this.version} - Hand area height updated: ${availableSpace}px (based on game area: ${gameAreaHeight}px)`
       );
-      return maxAllowedHeight;
     },
 
     shuffleArray(array) {
@@ -687,370 +865,509 @@ export default {
     },
 
     shuffleAndDeal() {
-      this.incrementVersion("Shuffle and deal started");
-      if (
-        !this.$refs.deckElement ||
-        !this.$refs.shuffleDealButton ||
-        !this.$refs.gameArea ||
-        !this.$refs.playerHandElement
-      ) {
-        console.warn("Required DOM elements not found");
-        return;
-      }
-
-      if (this.isAnimating || this.deckCards.length < 1) return;
-
-      this.isAnimating = true;
-      const shuffleDealButton = this.$refs.shuffleDealButton;
-      shuffleDealButton.disabled = true;
-      shuffleDealButton.classList.add("shuffling");
-      const deckElement = this.$refs.deckElement;
-      const gameArea = this.$refs.gameArea;
-
-      const animationTimeout = setTimeout(() => {
-        if (this.isAnimating) {
-          this.isAnimating = false;
-          shuffleDealButton.disabled = false;
-          shuffleDealButton.classList.remove("shuffling");
-          gsap.set(deckElement, {
-            clearProps: "all",
-            left: "20px",
-            top: "20px",
-          });
-          this.incrementVersion("Animation timeout triggered - safety reset");
+      try {
+        this.incrementVersion("Shuffle and deal started");
+        if (
+          !this.$refs.deckElement ||
+          !this.$refs.shuffleDealButton ||
+          !this.$refs.gameArea ||
+          !this.$refs.playerHandElement
+        ) {
+          console.warn("Required DOM elements not found");
+          return;
         }
-      }, 10000);
 
-      this.cardsToDisplay = parseInt(this.selectedCardCount);
-      this.cardsToDisplay = Math.min(
-        this.cardsToDisplay,
-        this.deckCards.length
-      );
+        if (this.isAnimating || this.deckCards.length < 1) return;
 
-      this.adjustGameAreaHeight();
-      this.updateCardDimensions();
+        this.isAnimating = true;
+        const shuffleDealButton = this.$refs.shuffleDealButton;
+        shuffleDealButton.disabled = true;
+        shuffleDealButton.classList.add("shuffling");
+        const deckElement = this.$refs.deckElement;
+        const gameArea = this.$refs.gameArea;
 
-      this.$refs.playerHandElement.innerHTML = "";
-      this.createPlaceholders(this.cardsToDisplay);
+        const animationTimeout = setTimeout(() => {
+          if (this.isAnimating) {
+            this.isAnimating = false;
+            shuffleDealButton.disabled = false;
+            shuffleDealButton.classList.remove("shuffling");
+            gsap.set(deckElement, {
+              clearProps: "all",
+              left: "20px",
+              top: "20px",
+            });
+            this.incrementVersion("Animation timeout triggered - safety reset");
+          }
+        }, 10000);
 
-      const gameAreaRect = gameArea.getBoundingClientRect();
-      const gameAreaWidth = gameAreaRect.width;
-      const gameAreaHeight = gameAreaRect.height;
-      const deckTopPosition = Math.max(gameAreaHeight * 0.2, 80);
+        this.cardsToDisplay = parseInt(this.selectedCardCount);
+        this.cardsToDisplay = Math.min(
+          this.cardsToDisplay,
+          this.deckCards.length
+        );
 
-      const centerX = gameAreaWidth / 2 - this.cardWidth / 2;
+        this.updateCardDimensions();
 
-      deckElement.style.transform = "none";
+        this.$refs.playerHandElement.innerHTML = "";
+        this.createPlaceholders(this.cardsToDisplay);
 
-      gsap.set(deckElement, {
-        position: "absolute",
-        left: "20px",
-        top: "20px",
-        rotation: 0,
-        zIndex: 100,
-        transform: "none",
-      });
+        const gameAreaRect = gameArea.getBoundingClientRect();
+        const gameAreaWidth = gameAreaRect.width;
+        const gameAreaHeight = gameAreaRect.height;
+        const deckTopPosition = Math.max(gameAreaHeight * 0.2, 80);
 
-      this.deckCards.forEach((card) => {
-        card.classList.add("card-back");
-        card.style.backgroundImage = "";
-        deckElement.appendChild(card);
-      });
+        const centerX = gameAreaWidth / 2 - this.cardWidth / 2;
 
-      const shuffledDeckCards = this.shuffleArray(this.deckCards);
-      this.deckCards = shuffledDeckCards;
-      this.deckCards.forEach((card) => deckElement.appendChild(card));
-      this.incrementVersion("Cards shuffled");
+        deckElement.style.transform = "none";
 
-      console.log(`[Tarot Card Reader] v${this.version} - Animation values:`, {
-        gameAreaWidth,
-        gameAreaHeight,
-        deckTopPosition,
-        centerPosition: centerX + "px",
-        deckSize: this.deckCards.length,
-      });
-
-      const isLargeDeck = this.deckCards.length > 30;
-
-      const animationCards = isLargeDeck
-        ? this.deckCards.slice(0, Math.min(30, this.deckCards.length))
-        : this.deckCards;
-
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Animating ${animationCards.length} cards out of ${this.deckCards.length} total`
-      );
-
-      const tl = gsap.timeline({
-        defaults: { ease: "power2.inOut" },
-        onComplete: () => {
-          this.incrementVersion("Shuffle animation complete, starting deal");
-          this.dealCards();
-          clearTimeout(animationTimeout);
-        },
-      });
-
-      tl.to(deckElement, {
-        duration: 0.4,
-        left: centerX + "px",
-        top: deckTopPosition + "px",
-        rotation: 2,
-        ease: "power1.inOut",
-      });
-
-      const performShuffle = () => {
-        tl.to(animationCards, {
-          x: (i) => (i % 2 === 0 ? -25 : 25),
-          y: (i) => (i % 3 === 0 ? -15 : 15),
-          stagger: {
-            amount: isLargeDeck ? 0.1 : 0.15,
-            from: "center",
-          },
-          duration: isLargeDeck ? 0.1 : 0.15,
+        gsap.set(deckElement, {
+          position: "absolute",
+          left: "20px",
+          top: "20px",
+          rotation: 0,
+          zIndex: 100,
+          transform: "none",
         });
 
-        if (isLargeDeck) {
-          tl.to(animationCards, {
-            x: (i) => Math.sin(i * 0.5) * 20,
-            y: (i) => Math.sin(i * 0.7) * 15,
-            rotation: (i) => Math.sin(i * 0.8) * 5,
-            stagger: { amount: 0.2, from: "random", ease: "power2.inOut" },
-            duration: 0.3,
-            ease: "power2.inOut",
-          }).to(animationCards, {
-            x: 0,
-            y: 0,
-            rotation: 0,
-            duration: 0.2,
-            ease: "power2.inOut",
-          });
-        } else {
-          const halfDeckSize = Math.floor(animationCards.length / 2);
-          const firstHalf = animationCards.slice(0, halfDeckSize);
-          const secondHalf = animationCards.slice(halfDeckSize);
+        this.deckCards.forEach((card) => {
+          card.classList.add("card-back");
+          card.style.backgroundImage = "";
+          deckElement.appendChild(card);
+        });
 
-          tl.to(firstHalf, {
-            x: (i) => -200,
-            y: (i) => 40 + Math.sin(i * 0.3) * 30,
-            rotation: -15,
-            stagger: { amount: 0.2, from: "start", ease: "power1.inOut" },
-            duration: 0.3,
-            ease: "back.out(1.2)",
-          })
-            .to(
-              secondHalf,
-              {
-                x: (i) => 200,
+        const shuffledDeckCards = this.shuffleArray(this.deckCards);
+        this.deckCards = shuffledDeckCards;
+        this.deckCards.forEach((card) => deckElement.appendChild(card));
+        this.incrementVersion("Cards shuffled");
+
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Animation values:`,
+          {
+            gameAreaWidth,
+            gameAreaHeight,
+            deckTopPosition,
+            centerPosition: centerX + "px",
+            deckSize: this.deckCards.length,
+          }
+        );
+
+        const isLargeDeck = this.deckCards.length > 30;
+
+        const animationCards = isLargeDeck
+          ? this.deckCards.slice(0, Math.min(30, this.deckCards.length))
+          : this.deckCards;
+
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Animating ${animationCards.length} cards out of ${this.deckCards.length} total`
+        );
+
+        const tl = gsap.timeline({
+          defaults: { ease: "power2.inOut" },
+          onComplete: () => {
+            try {
+              this.incrementVersion(
+                "Shuffle animation complete, starting deal"
+              );
+              this.dealCards();
+              clearTimeout(animationTimeout);
+            } catch (err) {
+              console.error(
+                "[Tarot Card Reader] - Animation complete error:",
+                err
+              );
+              this.isAnimating = false;
+              shuffleDealButton.disabled = false;
+              shuffleDealButton.classList.remove("shuffling");
+              clearTimeout(animationTimeout);
+            }
+          },
+        });
+
+        tl.to(deckElement, {
+          duration: 0.4,
+          left: centerX + "px",
+          top: deckTopPosition + "px",
+          rotation: 2,
+          ease: "power1.inOut",
+        });
+
+        const performShuffle = () => {
+          try {
+            tl.to(animationCards, {
+              x: (i) => (i % 2 === 0 ? -25 : 25),
+              y: (i) => (i % 3 === 0 ? -15 : 15),
+              stagger: {
+                amount: isLargeDeck ? 0.1 : 0.15,
+                from: "center",
+              },
+              duration: isLargeDeck ? 0.1 : 0.15,
+            });
+
+            if (isLargeDeck) {
+              tl.to(animationCards, {
+                x: (i) => Math.sin(i * 0.5) * 20,
+                y: (i) => Math.sin(i * 0.7) * 15,
+                rotation: (i) => Math.sin(i * 0.8) * 5,
+                stagger: { amount: 0.2, from: "random", ease: "power2.inOut" },
+                duration: 0.3,
+                ease: "power2.inOut",
+              }).to(animationCards, {
+                x: 0,
+                y: 0,
+                rotation: 0,
+                duration: 0.2,
+                ease: "power2.inOut",
+              });
+            } else {
+              const halfDeckSize = Math.floor(animationCards.length / 2);
+              const firstHalf = animationCards.slice(0, halfDeckSize);
+              const secondHalf = animationCards.slice(halfDeckSize);
+
+              tl.to(firstHalf, {
+                x: (i) => -200,
                 y: (i) => 40 + Math.sin(i * 0.3) * 30,
-                rotation: 15,
+                rotation: -15,
                 stagger: { amount: 0.2, from: "start", ease: "power1.inOut" },
                 duration: 0.3,
                 ease: "back.out(1.2)",
-              },
-              "<"
-            )
-            .to(animationCards, {
-              x: (i) => Math.sin(i * 0.5) * 25,
-              y: (i) => Math.sin(i * 0.7) * 10,
-              rotation: (i) => Math.sin(i * 0.8) * 8,
-              stagger: { amount: 0.4, from: "random", ease: "power3.inOut" },
-              duration: 0.4,
-              ease: "elastic.out(0.5, 0.3)",
-            })
-            .to(animationCards, {
+              })
+                .to(
+                  secondHalf,
+                  {
+                    x: (i) => 200,
+                    y: (i) => 40 + Math.sin(i * 0.3) * 30,
+                    rotation: 15,
+                    stagger: {
+                      amount: 0.2,
+                      from: "start",
+                      ease: "power1.inOut",
+                    },
+                    duration: 0.3,
+                    ease: "back.out(1.2)",
+                  },
+                  "<"
+                )
+                .to(animationCards, {
+                  x: (i) => Math.sin(i * 0.5) * 25,
+                  y: (i) => Math.sin(i * 0.7) * 10,
+                  rotation: (i) => Math.sin(i * 0.8) * 8,
+                  stagger: {
+                    amount: 0.4,
+                    from: "random",
+                    ease: "power3.inOut",
+                  },
+                  duration: 0.4,
+                  ease: "elastic.out(0.5, 0.3)",
+                })
+                .to(animationCards, {
+                  x: 0,
+                  y: 0,
+                  rotation: 0,
+                  duration: 0.2,
+                  ease: "power2.inOut",
+                });
+            }
+          } catch (err) {
+            console.error("[Tarot Card Reader] - Shuffle error:", err);
+            // Continue to next steps on error rather than breaking
+            tl.to(animationCards, {
               x: 0,
               y: 0,
               rotation: 0,
               duration: 0.2,
               ease: "power2.inOut",
             });
+          }
+        };
+
+        performShuffle();
+
+        tl.to(deckElement, {
+          y: "-=10",
+          duration: 0.1,
+          ease: "power1.inOut",
+        }).to(deckElement, {
+          y: "+=10",
+          duration: 0.1,
+          ease: "power1.out",
+        });
+
+        performShuffle();
+      } catch (err) {
+        console.error("[Tarot Card Reader] - Shuffle and deal error:", err);
+        if (this.$refs.shuffleDealButton) {
+          this.$refs.shuffleDealButton.disabled = false;
+          this.$refs.shuffleDealButton.classList.remove("shuffling");
         }
-      };
-
-      performShuffle();
-
-      tl.to(deckElement, {
-        y: "-=10",
-        duration: 0.1,
-        ease: "power1.inOut",
-      }).to(deckElement, {
-        y: "+=10",
-        duration: 0.1,
-        ease: "power1.out",
-      });
-
-      performShuffle();
+        this.isAnimating = false;
+      }
     },
 
     dealCards() {
-      this.incrementVersion(`Dealing ${this.cardsToDisplay} cards`);
-      if (
-        !this.$refs.playerHandElement ||
-        !this.$refs.deckElement ||
-        !this.$refs.gameArea
-      )
-        return;
+      try {
+        this.incrementVersion(`Dealing ${this.cardsToDisplay} cards`);
+        if (
+          !this.$refs.playerHandElement ||
+          !this.$refs.deckElement ||
+          !this.$refs.gameArea
+        )
+          return;
 
-      const playerHandElement = this.$refs.playerHandElement;
-      const placeholderContainer = playerHandElement.querySelector("div");
-      if (!placeholderContainer) return;
+        const playerHandElement = this.$refs.playerHandElement;
+        const placeholderContainer = playerHandElement.querySelector("div");
+        if (!placeholderContainer) return;
 
-      const placeholders =
-        placeholderContainer.querySelectorAll(".card-placeholder");
+        const placeholders =
+          placeholderContainer.querySelectorAll(".card-placeholder");
 
-      const cardsToDealElements = this.deckCards.slice(-this.cardsToDisplay);
-      this.deckCards.splice(-this.cardsToDisplay);
+        // Make sure we have enough cards and placeholders
+        if (placeholders.length === 0) {
+          console.error("No placeholders found for dealing cards");
+          return;
+        }
 
-      this.updateCardDimensions();
-
-      const deckElement = this.$refs.deckElement;
-      const gameArea = this.$refs.gameArea;
-      const deckRect = deckElement.getBoundingClientRect();
-      const gameAreaRect = gameArea.getBoundingClientRect();
-      const containerRect = placeholderContainer.getBoundingClientRect();
-
-      const dealTl = gsap.timeline({
-        onComplete: () => {
-          this.incrementVersion("Card dealing complete, moving deck back");
-          this.moveRemainingDeckBack();
-        },
-      });
-
-      cardsToDealElements.forEach((card, i) => {
-        if (!placeholders[i]) return;
-
-        const targetPlaceholder = placeholders[i];
-        const staggerDelay = i * 0.06;
-
-        const firstBounds = card.getBoundingClientRect();
-        const first = {
-          top: firstBounds.top - gameAreaRect.top,
-          left: firstBounds.left - gameAreaRect.left,
-          width: firstBounds.width,
-          height: firstBounds.height,
-        };
-
-        placeholderContainer.appendChild(card);
-
-        gsap.set(card, {
-          position: "absolute",
-          width: `${this.cardWidth}px`,
-          height: `${this.cardHeight}px`,
-          left: `${placeholderBounds.left - containerRect.left}px`,
-          top: `${placeholderBounds.top - containerRect.top}px`,
-          margin: 0,
-          zIndex: 10,
-        });
-
-        const lastBounds = card.getBoundingClientRect();
-        const last = {
-          top: lastBounds.top - gameAreaRect.top,
-          left: lastBounds.left - gameAreaRect.left,
-          width: lastBounds.width,
-          height: lastBounds.height,
-        };
-
-        const deltaX = first.left - last.left;
-        const deltaY = first.top - last.top;
-
-        gsap.set(card, {
-          x: deltaX,
-          y: deltaY,
-          transformOrigin: "center center",
-          zIndex: 100 + i,
-        });
-
-        dealTl.to(card, {
-          duration: 0.25,
-          x: 0,
-          y: 0,
-          ease: "power2.out",
-          delay: staggerDelay,
-        });
-
-        dealTl.to(
-          card,
-          {
-            rotationY: 180,
-            duration: 0.15,
-            ease: "power1.inOut",
-            onStart: function () {
-              gsap.set(card, {
-                transformPerspective: 800,
-                transformOrigin: "center center",
-              });
-            },
-            onComplete: () => {
-              card.classList.remove("card-back");
-              card.classList.add("card-face");
-
-              if (card.dataset.imageUrl) {
-                card.style.backgroundImage = `url('${card.dataset.imageUrl}')`;
-                card.style.backgroundSize = "contain";
-                card.style.backgroundPosition = "center";
-                card.style.backgroundRepeat = "no-repeat";
-                card.style.backgroundColor =
-                  this.content.lightColor || "#f8f0fc";
-              } else {
-                card.style.backgroundColor =
-                  this.content.lightColor || "#f8f0fc";
-              }
-
-              card.style.borderColor =
-                this.content.deckBorderColor || "#9e15bf";
-
-              const titleElement = card.querySelector("span");
-              if (titleElement) {
-                card.removeChild(titleElement);
-
-                const titleContainer = document.createElement("div");
-                titleContainer.classList.add("card-title");
-                titleContainer.textContent = titleElement.textContent;
-
-                titleContainer.style.position = "absolute";
-                titleContainer.style.top = "100%";
-                titleContainer.style.left = "0";
-                titleContainer.style.whiteSpace = "normal";
-                titleContainer.style.width = "100%";
-                titleContainer.style.textAlign = "center";
-                titleContainer.style.color =
-                  this.content.lightColor || "#f8f0fc";
-                titleContainer.style.fontWeight = "bold";
-                titleContainer.style.fontSize = "0.9em";
-                titleContainer.style.textShadow = "0 0 4px rgba(0, 0, 0, 0.8)";
-
-                card.appendChild(titleContainer);
-              }
-
-              gsap.set(card, { rotationY: 0 });
-            },
-          },
-          ">"
+        const cardsToDisplayCount = Math.min(
+          this.cardsToDisplay,
+          this.deckCards.length
         );
 
-        dealTl.to(
-          card,
-          {
-            boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
-            duration: 0.05,
-            delay: -0.05,
-          },
-          ">-0.05"
+        if (cardsToDisplayCount === 0) {
+          console.error("No cards to deal");
+          return;
+        }
+
+        const cardsToDealElements = this.deckCards.slice(-cardsToDisplayCount);
+        this.deckCards.splice(-cardsToDisplayCount); // Remove from deck array
+
+        this.updateCardDimensions();
+
+        const deckElement = this.$refs.deckElement;
+        const gameArea = this.$refs.gameArea;
+        const deckRect = deckElement.getBoundingClientRect();
+        const gameAreaRect = gameArea.getBoundingClientRect();
+
+        // Get all placeholder bounds before DOM changes
+        const placeholderBounds = Array.from(placeholders).map((placeholder) =>
+          placeholder.getBoundingClientRect()
         );
 
-        dealTl.to(card, {
-          boxShadow: "2px 2px 5px rgba(0,0,0,0.3)",
-          duration: 0.1,
+        const dealTl = gsap.timeline({
+          onComplete: () => {
+            try {
+              this.incrementVersion("Card dealing complete, moving deck back");
+              this.moveRemainingDeckBack();
+            } catch (err) {
+              console.error("[Tarot Card Reader] - Deal complete error:", err);
+              this.isAnimating = false;
+              if (this.$refs.shuffleDealButton) {
+                this.$refs.shuffleDealButton.disabled = false;
+                this.$refs.shuffleDealButton.classList.remove("shuffling");
+              }
+            }
+          },
         });
-      });
 
-      dealTl.add(() => {
-        gsap.to(cardsToDealElements, {
-          boxShadow: "0 0 8px rgba(255,255,255,0.7)",
-          duration: 0.1,
-          yoyo: true,
-          repeat: 1,
+        cardsToDealElements.forEach((card, i) => {
+          try {
+            if (i >= placeholders.length) return; // Skip if no placeholder available
+
+            // Get first bounds before any DOM changes
+            const firstBounds = card.getBoundingClientRect();
+            const first = {
+              top: firstBounds.top - gameAreaRect.top,
+              left: firstBounds.left - gameAreaRect.left,
+              width: firstBounds.width,
+              height: firstBounds.height,
+            };
+
+            // Get the target placeholder
+            const placeholder = placeholders[i];
+            const placeholderRect = placeholderBounds[i];
+
+            // Calculate position within the game area
+            const placeholderInGameArea = {
+              top: placeholderRect.top - gameAreaRect.top,
+              left: placeholderRect.left - gameAreaRect.left,
+            };
+
+            // Now append the card to the placeholder instead of replacing it
+            placeholder.appendChild(card);
+
+            // Set the card to fill the placeholder
+            gsap.set(card, {
+              position: "absolute",
+              width: "100%",
+              height: "100%",
+              left: 0,
+              top: 0,
+              margin: 0,
+              zIndex: 10,
+            });
+
+            // Calculate the final position for the animation
+            const finalPosition = {
+              top: placeholderInGameArea.top,
+              left: placeholderInGameArea.left,
+            };
+
+            // Calculate translation values for the animation
+            const deltaX = first.left - finalPosition.left;
+            const deltaY = first.top - finalPosition.top;
+
+            gsap.set(card, {
+              x: deltaX,
+              y: deltaY,
+              transformOrigin: "center center",
+              zIndex: 100 + i,
+            });
+
+            const staggerDelay = i * 0.06;
+
+            dealTl.to(card, {
+              duration: 0.25,
+              x: 0,
+              y: 0,
+              ease: "power2.out",
+              delay: staggerDelay,
+            });
+
+            dealTl.to(
+              card,
+              {
+                rotationY: 180,
+                duration: 0.15,
+                ease: "power1.inOut",
+                onStart: function () {
+                  gsap.set(card, {
+                    transformPerspective: 800,
+                    transformOrigin: "center center",
+                  });
+                },
+                onComplete: () => {
+                  try {
+                    card.classList.remove("card-back");
+                    card.classList.add("card-face");
+
+                    if (card.dataset.imageUrl) {
+                      card.style.backgroundImage = `url('${card.dataset.imageUrl}')`;
+                      card.style.backgroundSize = "cover";
+                      card.style.backgroundPosition = "center";
+                      card.style.backgroundRepeat = "no-repeat";
+                      card.style.backgroundColor =
+                        this.content.lightColor || "#f8f0fc";
+
+                      // Ensure card stays within placeholder during resize
+                      card.style.position = "absolute";
+                      card.style.width = "100%";
+                      card.style.height = "100%";
+                      card.style.top = "0";
+                      card.style.left = "0";
+                      card.style.margin = "0";
+                    } else {
+                      card.style.backgroundColor =
+                        this.content.lightColor || "#f8f0fc";
+
+                      // Ensure card stays within placeholder during resize
+                      card.style.position = "absolute";
+                      card.style.width = "100%";
+                      card.style.height = "100%";
+                      card.style.top = "0";
+                      card.style.left = "0";
+                      card.style.margin = "0";
+                    }
+
+                    card.style.borderColor =
+                      this.content.deckBorderColor || "#9e15bf";
+
+                    const titleElement = card.querySelector("span");
+                    if (titleElement) {
+                      card.removeChild(titleElement);
+
+                      // Create the title with absolute positioning
+                      const titleContainer = document.createElement("div");
+                      titleContainer.classList.add("card-title");
+                      titleContainer.textContent = titleElement.textContent;
+
+                      // Position the title below the placeholder with consistent 10px spacing
+                      placeholder.appendChild(titleContainer);
+                      titleContainer.style.position = "absolute";
+                      titleContainer.style.top = "calc(100% + 10px)"; // 10px spacing from card
+                      titleContainer.style.left = "0";
+                      titleContainer.style.whiteSpace = "normal";
+                      titleContainer.style.width = "100%";
+                      titleContainer.style.textAlign = "center";
+                      titleContainer.style.color =
+                        this.content.titleColor ||
+                        this.content.lightColor ||
+                        "#f8f0fc";
+                      titleContainer.style.fontWeight = "bold";
+                      titleContainer.style.fontSize = this.content.titleFontSize
+                        ? `${this.content.titleFontSize}px`
+                        : "min(14px, 2.8vw)";
+                      titleContainer.style.textShadow =
+                        "0 0 4px rgba(0, 0, 0, 0.8)";
+                      titleContainer.style.zIndex = "20";
+                    }
+
+                    gsap.set(card, { rotationY: 0 });
+                  } catch (err) {
+                    console.error(
+                      "[Tarot Card Reader] - Card flip error:",
+                      err
+                    );
+                    gsap.set(card, { rotationY: 0 });
+                  }
+                },
+              },
+              ">"
+            );
+
+            dealTl.to(
+              card,
+              {
+                boxShadow: "0 5px 15px rgba(0,0,0,0.3)",
+                duration: 0.05,
+                delay: -0.05,
+              },
+              ">-0.05"
+            );
+
+            dealTl.to(card, {
+              boxShadow: "2px 2px 5px rgba(0,0,0,0.3)",
+              duration: 0.1,
+            });
+          } catch (err) {
+            console.error(
+              "[Tarot Card Reader] - Card deal error for card " + i + ":",
+              err
+            );
+            // Continue with next card
+          }
         });
-      });
+
+        dealTl.add(() => {
+          try {
+            gsap.to(cardsToDealElements, {
+              boxShadow: "0 0 8px rgba(255,255,255,0.7)",
+              duration: 0.1,
+              yoyo: true,
+              repeat: 1,
+            });
+          } catch (err) {
+            console.error(
+              "[Tarot Card Reader] - Final card effect error:",
+              err
+            );
+          }
+        });
+      } catch (err) {
+        console.error("[Tarot Card Reader] - Deal cards error:", err);
+        this.isAnimating = false;
+        if (this.$refs.shuffleDealButton) {
+          this.$refs.shuffleDealButton.disabled = false;
+          this.$refs.shuffleDealButton.classList.remove("shuffling");
+        }
+      }
     },
 
     createPlaceholders(numCards) {
@@ -1068,6 +1385,7 @@ export default {
       placeholdersContainer.style.bottom = "0";
       placeholdersContainer.style.left = "0";
       placeholdersContainer.style.gap = "15px";
+      placeholdersContainer.style.paddingBottom = "10px";
 
       playerHandElement.appendChild(placeholdersContainer);
 
@@ -1075,7 +1393,7 @@ export default {
         const visiblePlaceholder = document.createElement("div");
         visiblePlaceholder.classList.add("rec-card", "card-placeholder");
         visiblePlaceholder.style.position = "relative";
-        visiblePlaceholder.style.margin = "5px 5px 25px 5px";
+        visiblePlaceholder.style.margin = "5px";
         placeholdersContainer.appendChild(visiblePlaceholder);
       }
 
@@ -1086,38 +1404,57 @@ export default {
     },
 
     moveRemainingDeckBack() {
-      this.incrementVersion("Moving deck back to start position");
-      if (!this.$refs.deckElement || !this.$refs.shuffleDealButton) return;
+      try {
+        this.incrementVersion("Moving deck back to start position");
+        if (!this.$refs.deckElement || !this.$refs.shuffleDealButton) return;
 
-      const deckElement = this.$refs.deckElement;
+        const deckElement = this.$refs.deckElement;
 
-      gsap.set(deckElement, { transform: "none" });
+        gsap.set(deckElement, { transform: "none" });
 
-      gsap.to(deckElement, {
-        duration: 0.4,
-        left: "20px",
-        top: "20px",
-        rotation: 0,
-        ease: "back.out(1.2)",
-        onComplete: () => {
-          this.isAnimating = false;
+        gsap.to(deckElement, {
+          duration: 0.4,
+          left: "20px",
+          top: "20px",
+          rotation: 0,
+          ease: "back.out(1.2)",
+          onComplete: () => {
+            try {
+              this.isAnimating = false;
+              this.$refs.shuffleDealButton.disabled = false;
+              this.$refs.shuffleDealButton.classList.remove("shuffling");
+
+              gsap.set(deckElement, {
+                transform: "none",
+                rotation: 0,
+              });
+
+              gsap.fromTo(
+                deckElement,
+                { top: "17px" },
+                { top: "20px", duration: 0.2, ease: "elastic.out(2, 0.3)" }
+              );
+
+              this.incrementVersion("Animation sequence complete");
+            } catch (err) {
+              console.error("[Tarot Card Reader] - Deck reset error:", err);
+              // Make sure animation state is still reset on error
+              this.isAnimating = false;
+              if (this.$refs.shuffleDealButton) {
+                this.$refs.shuffleDealButton.disabled = false;
+                this.$refs.shuffleDealButton.classList.remove("shuffling");
+              }
+            }
+          },
+        });
+      } catch (err) {
+        console.error("[Tarot Card Reader] - Move deck back error:", err);
+        this.isAnimating = false;
+        if (this.$refs.shuffleDealButton) {
           this.$refs.shuffleDealButton.disabled = false;
           this.$refs.shuffleDealButton.classList.remove("shuffling");
-
-          gsap.set(deckElement, {
-            transform: "none",
-            rotation: 0,
-          });
-
-          gsap.fromTo(
-            deckElement,
-            { top: "17px" },
-            { top: "20px", duration: 0.2, ease: "elastic.out(2, 0.3)" }
-          );
-
-          this.incrementVersion("Animation sequence complete");
-        },
-      });
+        }
+      }
     },
 
     preloadCardImages() {
@@ -1162,6 +1499,128 @@ export default {
         );
       }
     },
+
+    fixCardAppearanceAfterResize() {
+      try {
+        if (!this.$refs.playerHandElement) return;
+
+        // Find all dealt cards
+        const dealtCards =
+          this.$refs.playerHandElement.querySelectorAll(".card-face");
+
+        if (dealtCards && dealtCards.length > 0) {
+          this.incrementVersion("Fixing card appearance after resize");
+
+          // Fix card shadows and ensure proper positioning
+          dealtCards.forEach((card) => {
+            card.style.boxShadow = "2px 2px 5px rgba(0,0,0,0.3)";
+            card.style.position = "absolute";
+            card.style.width = "100%";
+            card.style.height = "100%";
+            card.style.top = "0";
+            card.style.left = "0";
+            card.style.margin = "0";
+            card.style.transform = "translateZ(0)";
+          });
+
+          // Update the title styles
+          this.updateTitleStyles();
+        }
+      } catch (err) {
+        console.error(
+          "[Tarot Card Reader] - Error fixing card appearance:",
+          err
+        );
+      }
+    },
+
+    updateTitleStyles() {
+      try {
+        if (!this.$refs.playerHandElement) return;
+
+        this.incrementVersion("Updating title styles");
+
+        // Update CSS variables
+        document.documentElement.style.setProperty(
+          "--title-color",
+          this.content.titleColor || this.content.lightColor || "#f8f0fc"
+        );
+        document.documentElement.style.setProperty(
+          "--title-font-size",
+          this.content.titleFontSize
+            ? `${this.content.titleFontSize}px`
+            : "min(14px, 2.8vw)"
+        );
+
+        // Find any existing card titles and update their styling
+        const titles =
+          this.$refs.playerHandElement.querySelectorAll(".card-title");
+        if (titles && titles.length > 0) {
+          titles.forEach((title) => {
+            title.style.color =
+              this.content.titleColor || this.content.lightColor || "#f8f0fc";
+            title.style.fontSize = this.content.titleFontSize
+              ? `${this.content.titleFontSize}px`
+              : "min(14px, 2.8vw)";
+          });
+        }
+      } catch (err) {
+        console.error(
+          "[Tarot Card Reader] - Error updating title styles:",
+          err
+        );
+      }
+    },
+
+    updateAllStyles() {
+      // Update all CSS variables
+      const root = document.documentElement;
+      root.style.setProperty(
+        "--deck-border-color",
+        this.content.deckBorderColor || "#9e15bf"
+      );
+      root.style.setProperty(
+        "--placeholder-border-color",
+        this.content.placeholderBorderColor || "#4ac6d2"
+      );
+      root.style.setProperty(
+        "--placeholder-background-color",
+        this.content.placeholderBackgroundColor || "transparent"
+      );
+      root.style.setProperty(
+        "--button-background-color",
+        this.content.buttonBackgroundColor || "#9e15bf"
+      );
+      root.style.setProperty(
+        "--button-text-color",
+        this.content.buttonTextColor || "#ffffff"
+      );
+      root.style.setProperty(
+        "--card-text-color",
+        this.content.lightColor || "#f8f0fc"
+      );
+      root.style.setProperty(
+        "--background-color",
+        this.content.backgroundColor || "#38074a"
+      );
+      root.style.setProperty(
+        "--title-color",
+        this.content.titleColor || this.content.lightColor || "#f8f0fc"
+      );
+      root.style.setProperty(
+        "--title-font-size",
+        this.content.titleFontSize
+          ? `${this.content.titleFontSize}px`
+          : "min(14px, 2.8vw)"
+      );
+      root.style.setProperty(
+        "--card-back-image",
+        `url('${
+          this.content.cardbackImageUrl ||
+          "https://b145kh3.myrdbx.io/wp-content/uploads/2025/02/tarot-karte-ziehen-online-179x300-1.jpg"
+        }')`
+      );
+    },
   },
 };
 </script>
@@ -1181,22 +1640,21 @@ export default {
   background-color: #38074a;
   overflow: hidden;
   perspective: 1000px;
+  box-sizing: border-box;
 }
 
 .game-area {
   position: relative;
-  width: min(80vw, 800px);
-  height: min(70vh, 600px);
   min-height: 300px;
+  height: calc(100% - 80px); /* Leave space for controls */
   border: 2px solid #9e15bf;
   background: linear-gradient(135deg, #300538, #170222);
   border-radius: 10px;
-  box-shadow: 0 5px 15px rgba(158, 21, 191, 0.3),
-    0 0 30px rgba(158, 21, 191, 0.2) inset;
   margin-bottom: 20px;
   overflow: hidden;
   transform-style: preserve-3d;
   perspective: 1000px;
+  box-sizing: border-box;
 }
 
 .deck-area,
@@ -1207,8 +1665,8 @@ export default {
 
 .deck-area {
   position: absolute;
-  width: min(120px, 20vw);
-  height: min(168px, 28vw);
+  width: var(--card-width);
+  height: var(--card-height);
   transform: none;
   top: 20px;
   left: 20px;
@@ -1264,7 +1722,7 @@ export default {
 
 .player-hand-area {
   position: absolute;
-  bottom: 20px;
+  bottom: 50px;
   left: 50%;
   transform: translateX(-50%);
   min-height: 200px;
@@ -1274,7 +1732,7 @@ export default {
   justify-content: center;
   align-content: flex-start;
   gap: 15px;
-  padding-bottom: 35px;
+  padding-bottom: 20px; /* Reduced padding since titles are in flex containers now */
 }
 
 .rec-card {
@@ -1288,6 +1746,12 @@ export default {
   position: relative;
   background-color: transparent;
   box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1) inset;
+}
+
+.card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .card {
@@ -1324,6 +1788,8 @@ export default {
   position: absolute;
   margin: 0;
   z-index: 10;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .controls #shuffle-deal-button {
@@ -1381,16 +1847,12 @@ export default {
 
   .rec-card {
     width: min(90px, 19vw);
-    height: min(126px, 26.6vw);
+    height: min(146px, 56.6vw);
   }
 
   .deck-area {
     width: min(90px, 19vw);
-    height: min(126px, 26.6vw);
-  }
-
-  .game-area {
-    height: 65vh;
+    height: min(146px, 36.6vw);
   }
 
   .player-hand-area {
@@ -1398,14 +1860,6 @@ export default {
     bottom: 15px;
     gap: 15px;
     padding-bottom: 50px;
-  }
-
-  .tarot-title {
-    font-size: 1.8rem;
-  }
-
-  .tarot-intro {
-    font-size: 0.9rem;
   }
 
   .rec-card {
@@ -1430,25 +1884,17 @@ export default {
   }
 
   .rec-card {
-    width: min(70px, 18vw);
-    height: min(98px, 25.2vw);
+    width: min(90px, 26vw);
+    height: min(146px, 45.2vw);
   }
 
   .deck-area {
     width: min(70px, 18vw);
     height: min(98px, 25.2vw);
   }
-
-  .tarot-title {
-    font-size: 1.5rem;
-  }
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
-  .game-area {
-    height: 78vh;
-  }
-
   .card {
     width: min(70px, 12vw);
     height: min(98px, 16.8vw);
@@ -1495,7 +1941,7 @@ export default {
 }
 
 .card-face {
-  background-size: contain !important;
+  background-size: cover !important;
   background-position: center !important;
   background-repeat: no-repeat !important;
   background-color: #f8f0fc !important;
@@ -1504,6 +1950,14 @@ export default {
   align-items: center !important;
   justify-content: center !important;
   padding: 3px !important;
+  width: 100% !important;
+  height: 100% !important;
+  top: 0 !important;
+  left: 0 !important;
+  position: absolute !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  transform: translateZ(0) !important; /* Force GPU acceleration */
 }
 
 .card-face::before {
@@ -1518,33 +1972,34 @@ export default {
   pointer-events: none !important;
 }
 
-.tarot-title {
-  color: #f8f0fc !important;
-  text-align: center;
-  font-size: 2.5rem;
-  margin-bottom: 0.5rem;
-  text-shadow: 0 0 10px #9e15bf, 0 0 20px #9e15bf;
-  font-family: "Georgia", serif;
-}
-
-.tarot-intro {
-  color: #4ac6d2;
-  text-align: center;
-  font-size: 1rem;
-  margin-bottom: 1.5rem;
-  font-style: italic;
-}
-
 .card-title {
   width: 100%;
   text-align: center;
-  font-size: 0.9em;
+  font-size: var(--title-font-size);
   font-weight: bold;
-  color: #f8f0fc;
-  margin-top: 8px;
+  color: var(--title-color);
+  position: absolute;
+  top: calc(100% + 10px); /* Consistent 10px spacing from card */
+  left: 0;
+  z-index: 20;
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
   line-height: 1.2;
-  max-width: 120%;
+  max-width: 100%;
   padding: 0 2px;
+  pointer-events: none;
+}
+
+.card-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.card-container .card-face {
+  flex: 1;
+  min-height: 0;
 }
 </style>
