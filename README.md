@@ -1,28 +1,15 @@
-# @weweb/create-component
+# Element component starter
 
-## Scaffolding Your First [weweb.io](https://www.weweb.io/) custom elements
+This is an element for [weweb.io](https://www.weweb.io/).
 
-With NPM:
+## Installation
 
-```bash
-$ npm init @weweb/component
-```
+To run locally, first install all dependencies with `npm i`
 
-With Yarn:
+## Start
 
-```bash
-$ yarn create @weweb/component
-```
+To serve locally, run `npm run serve --port=[PORT]`, and then go to Weweb editor, open developper popup and add your custom element.
 
-Then follow the prompts!
+## Build
 
-You can also directly specify the project name and the type of source code you want to develop via additional command line options. For example, to scaffold a custom element project, run:
-
-```bash
-npm init @weweb/component my-element --type element
-```
-
-Currently supported type are:
-
-- `element`
-- `section`
+Before release, you can check build error by running `npm run build --name=my-element`
