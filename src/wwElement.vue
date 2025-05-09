@@ -18,6 +18,24 @@
         {{ content.buttonText }}
       </button>
     </div>
+
+    <!-- Debug info display (hidden by default) -->
+    <div
+      class="debug-info"
+      v-if="content.showDebugInfo"
+      style="
+        margin-top: 10px;
+        font-size: 12px;
+        max-width: 90%;
+        overflow: auto;
+        max-height: 200px;
+        background: rgba(0, 0, 0, 0.1);
+        padding: 10px;
+        border-radius: 5px;
+      ">
+      <div><strong>Dealt Cards:</strong> {{ dealtCards.length }}</div>
+      <pre>{{ JSON.stringify(dealtCards, null, 2) }}</pre>
+    </div>
   </div>
 </template>
 
@@ -26,8 +44,53 @@ import { gsap } from "gsap";
 
 export default {
   props: {
-    content: { type: Object, required: true },
+    content: {
+      type: Object,
+      required: true,
+    },
   },
+  emits: ["update:resultCards", "cardsDealt", "cardsCleared", "update:content"],
+
+  // Explicitly expose functions for WeWeb actions
+  wwFunctions: {
+    getCards() {
+      console.log("[Tarot Card Reader] Action getCards called");
+      return this.dealtCards ? [...this.dealtCards] : [];
+    },
+    clearCards() {
+      console.log("[Tarot Card Reader] Action clearCards called");
+
+      // Clear the local array
+      this.dealtCards = [];
+
+      // Update using the proper WeWeb binding pattern
+      this.$emit("update:content", {
+        resultCards: [],
+      });
+
+      console.log(
+        "[Tarot Card Reader] Cleared resultCards property in content binding"
+      );
+
+      // Update global variable
+      window.tarotDealtCards = [];
+
+      // Emit the cards-cleared event using the trigger-event pattern
+      this.$emit("trigger-event", {
+        name: "cardsCleared",
+        payload: {},
+      });
+
+      console.log("[Tarot Card Reader] Emitted cardsCleared event");
+
+      return true;
+    },
+    getCardCount() {
+      console.log("[Tarot Card Reader] Action getCardCount called");
+      return this.dealtCards ? this.dealtCards.length : 0;
+    },
+  },
+
   data() {
     return {
       deckCards: [],
@@ -48,6 +111,11 @@ export default {
     };
   },
   computed: {
+    wwDefaultContent() {
+      return {
+        resultCards: [],
+      };
+    },
     cssVars() {
       return {
         "--deck-border-color": this.content.deckBorderColor || "#9e15bf",
@@ -205,8 +273,73 @@ export default {
       immediate: true,
     },
     dealtCards: {
+      handler(newValueProxy) {
+        console.log(
+          `[Tarot Card Reader] WATCHER: dealtCards updated. New length: ${
+            newValueProxy ? newValueProxy.length : 0
+          }`
+        );
+
+        // Only handle data binding updates here, not event emission
+        const plainDealtCards = [...newValueProxy];
+
+        // Update binding properties in content
+        this.$emit("update:content", {
+          resultCards: plainDealtCards,
+        });
+
+        // Update global variable
+        window.tarotDealtCards = plainDealtCards;
+
+        // No event emission here - events are now emitted directly in the animation sequence
+      },
+      deep: true,
+    },
+    "content.resultCards": {
       handler(newValue) {
-        this.$emit("update:resultCards", newValue);
+        if (
+          newValue &&
+          Array.isArray(newValue) &&
+          JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
+        ) {
+          console.log(
+            `[Tarot Card Reader] External update to resultCards detected:`,
+            newValue
+          );
+
+          // Update our internal state
+          this.dealtCards = [...newValue];
+
+          // Update global variable
+          window.tarotDealtCards = [...newValue];
+          console.log(
+            "[Tarot Card Reader] Updated global variable with external data"
+          );
+        }
+      },
+      deep: true,
+    },
+    "content.dealtCardsData": {
+      handler(newValue) {
+        if (
+          newValue &&
+          Array.isArray(newValue) &&
+          JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
+        ) {
+          console.log(
+            `[Tarot Card Reader] External update to dealtCardsData detected:`,
+            newValue
+          );
+
+          // Update our internal state
+          this.dealtCards = [...newValue];
+
+          // Update global variable
+          window.tarotDealtCards = [...newValue];
+          console.log(
+            "[Tarot Card Reader] Updated global variable with dealtCardsData"
+          );
+        }
       },
       deep: true,
     },
@@ -217,10 +350,108 @@ export default {
       `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
     );
 
+    // WeWeb components trigger workflows using this.$emit("trigger-event", {name, payload})
+    // No need for DOM-level event listeners
+
     // Initialize dealtCards from content if available
-    if (this.content.resultCards) {
-      this.dealtCards = this.content.resultCards;
+    if (this.content.resultCards && this.content.resultCards.length) {
+      this.dealtCards = [...this.content.resultCards];
+      console.log(
+        `[Tarot Card Reader] Initialized dealtCards from content:`,
+        this.dealtCards
+      );
     }
+
+    // Register component for WeWeb event system if wwLib is available
+    if (typeof window !== "undefined" && window.wwLib) {
+      try {
+        console.log("[Tarot Card Reader] Exposing functions for WeWeb actions");
+        // Register the component's functions for action workflows
+        if (window.wwLib.wwObject && window.wwLib.wwObject.update) {
+          console.log(
+            "[Tarot Card Reader] Registering component functions for WeWeb actions"
+          );
+          // Make functions accessible to WeWeb
+          window.tarotReaderActions = {
+            getDealtCards: () => {
+              const result = this.getDealtCards();
+              console.log(
+                "[Tarot Card Reader] Window action getDealtCards called, returning:",
+                result
+              );
+              return result;
+            },
+            clearDealtCards: () => this.clearDealtCards(),
+            updateVariable: (variableName) => this.updateVariable(variableName),
+            getCardsJson: () => this.getCardsJson(),
+            syncResultCards: () => this.syncResultCards(),
+            getDealtCardsCount: () => this.getDealtCardsCount(),
+          };
+        }
+      } catch (error) {
+        console.error(
+          "[Tarot Card Reader] Error registering with WeWeb:",
+          error
+        );
+      }
+    }
+
+    // Expose global access function
+    if (typeof window !== "undefined") {
+      window.getTarotDealtCards = () => {
+        console.log(
+          `[Tarot Card Reader] Global access: window.getTarotDealtCards called, returning:`,
+          this.dealtCards
+        );
+        return [...this.dealtCards];
+      };
+      console.log(
+        `[Tarot Card Reader] Exposed global function: window.getTarotDealtCards()`
+      );
+
+      // Add direct access to all component functions
+      window.tarotReaderComponent = this;
+      console.log(
+        "[Tarot Card Reader] Exposed component instance as window.tarotReaderComponent"
+      );
+    }
+
+    // Add a global function to manually trigger WeWeb events
+    window.triggerTarotEvent = (eventName) => {
+      if (eventName === "cards-dealt") {
+        console.log(
+          "[Tarot Card Reader] Manually triggering cards-dealt event with data:",
+          this.dealtCards
+        );
+        // Create and dispatch a custom event on the document
+        const event = new CustomEvent("cards-dealt", {
+          bubbles: true,
+          detail: {
+            eventId: Date.now().toString(),
+            data: [...this.dealtCards],
+          },
+        });
+        document.dispatchEvent(event);
+        return true;
+      } else if (eventName === "cards-cleared") {
+        console.log(
+          "[Tarot Card Reader] Manually triggering cards-cleared event"
+        );
+        // Create and dispatch a custom event on the document
+        const event = new CustomEvent("cards-cleared", {
+          bubbles: true,
+          detail: {
+            eventId: Date.now().toString(),
+          },
+        });
+        document.dispatchEvent(event);
+        return true;
+      }
+      return false;
+    };
+    console.log(
+      "[Tarot Card Reader] Exposed global function: window.triggerTarotEvent()"
+    );
 
     // Update all CSS variables
     this.updateAllStyles();
@@ -249,9 +480,9 @@ export default {
 
           if (this.$refs.playerHandElement) {
             // Only update placeholders if no cards have been dealt
-            const dealtCards =
+            const dealtCardsElements = // Renamed for clarity
               this.$refs.playerHandElement.querySelectorAll(".card-face");
-            if (!dealtCards || dealtCards.length === 0) {
+            if (!dealtCardsElements || dealtCardsElements.length === 0) {
               this.updatePlaceholderCards();
             } else {
               // Fix styling for already dealt cards
@@ -265,6 +496,167 @@ export default {
     };
 
     window.addEventListener("resize", this.handleResize);
+
+    // Add this to the mounted function near the other window functions
+    // Add debug helper to examine and update variables
+    window.tarotDebugHelper = {
+      // Get the current dealt cards
+      getDealtCards: () => {
+        return [...this.dealtCards];
+      },
+
+      // Force update of any WeWeb variable with current dealtCards
+      updateVariable: (variableName) => {
+        if (window.wwLib && window.wwLib.wwVariable) {
+          try {
+            window.wwLib.wwVariable.updateValue(variableName, [
+              ...this.dealtCards,
+            ]);
+            console.log(
+              `[Tarot Card Reader] Updated ${variableName} with:`,
+              this.dealtCards
+            );
+            return true;
+          } catch (error) {
+            console.error(
+              `[Tarot Card Reader] Error updating ${variableName}:`,
+              error
+            );
+            return false;
+          }
+        }
+        return false;
+      },
+
+      // Inspect all WeWeb variables (helpful for debugging)
+      inspectVariables: () => {
+        if (window.wwLib && window.wwLib.wwVariable) {
+          try {
+            const vars = window.wwLib.wwVariable.getValues();
+            console.log("[Tarot Cards] All WeWeb variables:", vars);
+            return vars;
+          } catch (error) {
+            console.error("[Tarot Cards] Error getting variables:", error);
+            return null;
+          }
+        }
+        return null;
+      },
+
+      // Check if a specific variable exists
+      variableExists: (variableName) => {
+        if (window.wwLib && window.wwLib.wwVariable) {
+          try {
+            const value = window.wwLib.wwVariable.getValue(variableName);
+            console.log(
+              `[Tarot Cards] Variable ${variableName} exists:`,
+              value !== undefined
+            );
+            return value !== undefined;
+          } catch (error) {
+            console.error(
+              `[Tarot Cards] Error checking variable ${variableName}:`,
+              error
+            );
+            return false;
+          }
+        }
+        return false;
+      },
+    };
+
+    console.log("[Tarot Card Reader] Added tarotDebugHelper to window object");
+
+    // Initialize the global tarotDealtCards variable for external access
+    window.tarotDealtCards = this.dealtCards.length ? [...this.dealtCards] : [];
+    console.log(
+      "[Tarot Card Reader] Initialized global window.tarotDealtCards variable"
+    );
+
+    // Add to the mounted method after the other initialization
+    // Direct cardRes handling - we know the exact variable name from the screenshot
+    // console.log("[Tarot Card Reader] Setting up direct cardRes handling");
+
+    // First check if the variable exists
+    // if (window.wwLib && window.wwLib.wwVariable) {
+    //   try {
+    // Create a periodic check for dealtCards updates that will sync to cardRes
+    // const cardResSyncInterval = setInterval(() => {
+    //   if (this.dealtCards && this.dealtCards.length > 0) {
+    //     window.wwLib.wwVariable.updateValue("cardRes", [
+    //       ...this.dealtCards,
+    //     ]);
+    //     console.log(
+    //       "[Tarot Card Reader] Synced cardRes with dealtCards (from interval):",
+    //       this.dealtCards
+    //     );
+    //   }
+    // }, 1000); // Check every second
+
+    // // Clean up the interval when component is unmounted
+    // this.$once("hook:beforeDestroy", () => {
+    //   clearInterval(cardResSyncInterval);
+    //   console.log("[Tarot Card Reader] Cleared cardRes sync interval");
+    // });
+
+    // Also create a direct function to force update
+    // window.forceCardResUpdate = () => {
+    //   window.wwLib.wwVariable.updateValue("cardRes", [...this.dealtCards]);
+    //   console.log(
+    //     "[Tarot Card Reader] Forced cardRes update with:",
+    //     this.dealtCards
+    //   );
+
+    // Check for empty result
+    // setTimeout(() => {
+    //   const cardResValue = window.wwLib.wwVariable.getValue("cardRes");
+    //   console.log(
+    //     "[Tarot Card Reader] cardRes value after update:",
+    //     cardResValue
+    //   );
+    //   if (
+    //     !cardResValue ||
+    //     (Array.isArray(cardResValue) && cardResValue.length === 0)
+    //   ) {
+    //     console.log(
+    //       "[Tarot Card Reader] cardRes is still empty, trying alternate approach"
+    //     );
+    // Try an alternate approach - override the getter
+    // try {
+    //   // This is an aggressive approach to override wwVariable's getter
+    //   const originalGetValue = window.wwLib.wwVariable.getValue;
+    //   window.wwLib.wwVariable.getValue = function (name) {
+    //     if (name === "cardRes") {
+    //       console.log(
+    //         "[Tarot Card Reader] Intercepted cardRes get request"
+    //       );
+    //       return [...this.dealtCards];
+    //     }
+    //     return originalGetValue.call(window.wwLib.wwVariable, name);
+    //   }.bind(this);
+    //   console.log(
+    //     "[Tarot Card Reader] Successfully overrode getValue for cardRes"
+    //   );
+    // } catch (e) {
+    //   console.error(
+    //     "[Tarot Card Reader] Error overriding getValue:",
+    //     e
+    //   );
+    // }
+    //   }
+    // }, 100);
+    // };
+
+    //     console.log(
+    //       "[Tarot Card Reader] Added window.forceCardResUpdate() function"
+    //     );
+    //   } catch (error) {
+    //     console.error(
+    //       "[Tarot Card Reader] Error setting up cardRes handling:",
+    //       error
+    //     );
+    //   }
+    // }
   },
   beforeUnmount() {
     console.log(`[Tarot Card Reader] v${this.version} - Component unmounting`);
@@ -890,7 +1282,26 @@ export default {
 
         if (this.isAnimating || this.deckCards.length < 1) return;
 
-        this.dealtCards = [];
+        // We'll only emit the cardsDealt event AFTER the cards are actually dealt
+        // No emission here to avoid duplicate triggers
+        console.log(
+          "[Tarot Card Reader] User clicked Shuffle button - Will emit event AFTER cards are dealt"
+        );
+
+        // Reset dealt cards array when shuffling and emit cleared event
+        if (this.dealtCards.length > 0) {
+          this.dealtCards = [];
+
+          // Still emit the cardsCleared event
+          this.$emit("trigger-event", {
+            name: "cardsCleared",
+            payload: {},
+          });
+
+          console.log(
+            "[Tarot Card Reader] Emitted 'trigger-event' with name: 'cardsCleared'"
+          );
+        }
 
         this.isAnimating = true;
         const shuffleDealButton = this.$refs.shuffleDealButton;
@@ -1123,8 +1534,16 @@ export default {
           !this.$refs.playerHandElement ||
           !this.$refs.deckElement ||
           !this.$refs.gameArea
-        )
+        ) {
+          console.error(
+            "[Tarot Card Reader] - DOM refs missing, cannot deal cards"
+          );
           return;
+        }
+
+        console.log(
+          `[Tarot Card Reader] dealCards: Starting the deal process for ${this.cardsToDisplay} cards`
+        );
 
         const playerHandElement = this.$refs.playerHandElement;
         const placeholderContainer = playerHandElement.querySelector("div");
@@ -1186,6 +1605,13 @@ export default {
         cardsToDealElements.forEach((card, i) => {
           try {
             if (i >= placeholders.length) return; // Skip if no placeholder available
+
+            console.log(`[Tarot Card Reader] Card ${i} data:`, {
+              id: card.dataset.tarotId,
+              title: card.dataset.title,
+              cardNumber: card.dataset.cardNumber,
+              imageUrl: card.dataset.imageUrl || null,
+            });
 
             // Extract and store the card data
             dealtCardsData.push({
@@ -1373,12 +1799,58 @@ export default {
         // After all cards are dealt and animations are complete
         dealTl.add(() => {
           try {
-            // Update the dealtCards data to make it available outside
-            this.dealtCards = dealtCardsData;
+            console.log(
+              `[Tarot Card Reader] Final card data array before assignment to this.dealtCards:`,
+              JSON.parse(JSON.stringify(dealtCardsData)) // Log a clean copy
+            );
 
-            // Emit a custom event for card dealing completion
-            this.$emit("cards-dealt", dealtCardsData);
+            // Update the dealtCards array with the new data
+            this.dealtCards = [...dealtCardsData];
 
+            // Create payload for the event - this is what WeWeb will see in workflows
+            const eventPayload = {
+              count: dealtCardsData.length,
+              firstCardTitle:
+                dealtCardsData.length > 0 ? dealtCardsData[0].title : null,
+              // Include the JSON string representation for easier access in workflows
+              cardsJson: JSON.stringify(dealtCardsData),
+              // Individual cards are useful but not as important as the full array
+              card1: dealtCardsData.length > 0 ? dealtCardsData[0] : null,
+              card2: dealtCardsData.length > 1 ? dealtCardsData[1] : null,
+              card3: dealtCardsData.length > 2 ? dealtCardsData[2] : null,
+              card4: dealtCardsData.length > 3 ? dealtCardsData[3] : null,
+              card5: dealtCardsData.length > 4 ? dealtCardsData[4] : null,
+              // Keep the raw array as well - it will be accessible via Event.rawCards in Custom JS actions
+              rawCards: dealtCardsData,
+            };
+
+            // OFFICIAL WEWEB PATTERN: Use trigger-event to notify WeWeb workflows
+            // This is the ONLY emission point for cardsDealt to avoid duplicate triggers
+            this.$emit("trigger-event", {
+              name: "cardsDealt",
+              payload: eventPayload,
+            });
+
+            console.log(
+              "[Tarot Card Reader] Emitted 'trigger-event' with name: 'cardsDealt' and payload:",
+              eventPayload
+            );
+
+            // Update content binding - this is what makes the cards available to bind in the editor
+            // The resultCards property needs the full array with proper structure
+            this.$emit("update:content", {
+              resultCards: dealtCardsData,
+            });
+
+            console.log(
+              "[Tarot Card Reader] Updated content binding with resultCards:",
+              dealtCardsData
+            );
+
+            // Update global variable
+            window.tarotDealtCards = dealtCardsData;
+
+            // Add visual effect (optional, can be kept)
             gsap.to(cardsToDealElements, {
               boxShadow: "0 0 8px rgba(255,255,255,0.7)",
               duration: 0.1,
@@ -1387,7 +1859,7 @@ export default {
             });
           } catch (err) {
             console.error(
-              "[Tarot Card Reader] - Final card effect error:",
+              "[Tarot Card Reader] - Error in dealTl.add callback after assigning to this.dealtCards:",
               err
             );
           }
@@ -1466,6 +1938,12 @@ export default {
                 { top: "17px" },
                 { top: "20px", duration: 0.2, ease: "elastic.out(2, 0.3)" }
               );
+
+              // FINAL ANIMATION COMPLETION - at this point cards are fully dealt and visible
+              console.log("[Tarot Card Reader] ANIMATION SEQUENCE COMPLETE");
+
+              // We no longer emit the event here to avoid duplicate triggers.
+              // The event is already emitted once in the dealCards method.
 
               this.incrementVersion("Animation sequence complete");
             } catch (err) {
@@ -1656,7 +2134,212 @@ export default {
 
     // Add a method to get current dealt cards
     getDealtCards() {
-      return [...this.dealtCards]; // Return a copy of the array
+      console.log("[Tarot Card Reader] Direct action getDealtCards called");
+      return this.dealtCards ? [...this.dealtCards] : [];
+    },
+
+    // Clear dealt cards
+    clearDealtCards() {
+      console.log("[Tarot Card Reader] Action clearDealtCards called");
+
+      // Clear the local array
+      this.dealtCards = [];
+
+      // Update using the proper WeWeb binding pattern
+      this.$emit("update:content", {
+        resultCards: [],
+      });
+
+      console.log(
+        "[Tarot Card Reader] Cleared resultCards property in content binding"
+      );
+
+      // Update global variable
+      window.tarotDealtCards = [];
+
+      // Emit the cards-cleared event using the trigger-event pattern
+      this.$emit("trigger-event", {
+        name: "cardsCleared",
+        payload: {},
+      });
+
+      console.log("[Tarot Card Reader] Emitted cardsCleared event");
+
+      return true;
+    },
+
+    // In the script section, add a special API method that WeWeb can access
+    wwGetDealtCards: function () {
+      console.log(
+        "[Tarot Card Reader] wwGetDealtCards called, returning:",
+        this.dealtCards
+      );
+      return this.dealtCards;
+    },
+
+    // Add a "set" method specifically for WeWeb
+    setResultCards: function (cards) {
+      console.log("[Tarot Card Reader] setResultCards called with:", cards);
+
+      // Only update our local property, and let the watcher emit events
+      this.dealtCards = Array.isArray(cards) ? [...cards] : [];
+
+      return this.dealtCards;
+    },
+
+    // Add a getter method specifically for WeWeb
+    getResultCards: function () {
+      console.log("[Tarot Card Reader] getResultCards called");
+      return this.dealtCards;
+    },
+
+    // Emit events in the documented WeWeb format
+    emitWWEvent(eventName, data = {}) {
+      console.log(
+        `[Tarot Card Reader] Emitting WeWeb event '${eventName}' via trigger-event with payload:`,
+        data
+      );
+
+      // Use the official WeWeb trigger-event format
+      this.$emit("trigger-event", {
+        name: eventName,
+        payload: data,
+      });
+    },
+
+    // Add dedicated method for cardRes sync
+    syncCardRes() {
+      console.log("[Tarot Card Reader] Method syncCardRes called");
+
+      // The dealtCards watcher handles emitting update:content and attempting to update cardRes variable.
+      // We keep it here in case it's directly called by an action in WeWeb, but its direct update to cardRes might still fail if cardRes is not found.
+
+      // Ensure content is updated via standard emit, which is the preferred way.
+      this.$emit("update:content", {
+        resultCards: [...this.dealtCards],
+        dealtCardsData: [...this.dealtCards],
+      });
+      console.log(
+        "[Tarot Card Reader] Emitted update:content from syncCardRes method (watcher should also run)"
+      );
+
+      // Attempt to update cardRes directly, acknowledging it might fail if variable doesn't exist.
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          window.wwLib.wwVariable.updateValue("cardRes", [...this.dealtCards]);
+          console.log(
+            "[Tarot Card Reader] Attempted to sync cardRes directly from syncCardRes method with dealtCards:",
+            this.dealtCards
+          );
+          return true;
+        } catch (error) {
+          console.error(
+            "[Tarot Card Reader] Error attempting to sync cardRes from syncCardRes method:",
+            error
+          );
+        }
+      }
+
+      return false;
+    },
+
+    // Update a specific WeWeb variable with the dealt cards
+    updateVariable: function (variableName) {
+      console.log(
+        `[Tarot Card Reader] Action updateVariable called for ${variableName}`
+      );
+
+      if (!variableName) {
+        console.error(
+          "[Tarot Card Reader] Variable name is required for updateVariable action"
+        );
+        return false;
+      }
+
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          window.wwLib.wwVariable.updateValue(variableName, [
+            ...this.dealtCards,
+          ]);
+          console.log(
+            `[Tarot Card Reader] Successfully updated WeWeb variable '${variableName}'`
+          );
+          return true;
+        } catch (error) {
+          console.error(
+            `[Tarot Card Reader] Error updating variable ${variableName}:`,
+            error
+          );
+        }
+      }
+
+      // Also try direct content binding
+      if (this.content) {
+        this.content.resultCards = [...this.dealtCards];
+        console.log(
+          `[Tarot Card Reader] Updated content.resultCards as fallback`
+        );
+      }
+
+      return false;
+    },
+
+    // Add a method to update the dealtCardsData property with formatted card info
+    updateDealtCardsData() {
+      try {
+        if (!this.dealtCards || this.dealtCards.length === 0) {
+          // If no cards are dealt, send empty array
+          this.$emit("update:content", {
+            dealtCardsData: [],
+          });
+          return;
+        }
+
+        // Update dealtCardsData with the full array
+        this.$emit("update:content", {
+          dealtCardsData: [...this.dealtCards],
+        });
+
+        console.log(
+          "[Tarot Card Reader] Updated dealtCardsData property with array data"
+        );
+      } catch (err) {
+        console.error(
+          "[Tarot Card Reader] Error updating dealtCardsData:",
+          err
+        );
+      }
+    },
+
+    // Add a direct method WeWeb can call
+    getCardsJson() {
+      console.log("[Tarot Card Reader] getCardsJson called");
+      return JSON.stringify(this.dealtCards || []);
+    },
+
+    // Method to synchronize data with WeWeb
+    syncResultCards() {
+      console.log("[Tarot Card Reader] Method syncResultCards called");
+
+      // Ensure content is updated via standard emit
+      this.$emit("update:content", {
+        resultCards: [...this.dealtCards],
+      });
+
+      // Update global variable
+      window.tarotDealtCards = [...this.dealtCards];
+
+      console.log("[Tarot Card Reader] Synchronized data with WeWeb");
+
+      return [...this.dealtCards];
+    },
+
+    // Get count of dealt cards - simple number return for WeWeb workflows
+    getDealtCardsCount() {
+      console.log("[Tarot Card Reader] getDealtCardsCount called");
+      const count = this.dealtCards ? this.dealtCards.length : 0;
+      console.log("[Tarot Card Reader] Returning dealt cards count:", count);
+      return count;
     },
   },
 };

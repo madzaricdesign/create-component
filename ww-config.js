@@ -165,21 +165,122 @@ export default {
       type: "Array",
       section: "Data",
       bindable: true,
+      options: {
+        item: {
+          type: "Object",
+          defaultValue: {},
+          options: {
+            title: {
+              label: {
+                en: "Title",
+              },
+              type: "Text",
+            },
+            id: {
+              label: {
+                en: "ID",
+              },
+              type: "Text",
+            },
+            cardNumber: {
+              label: {
+                en: "Card Number",
+              },
+              type: "Text",
+            },
+            imageUrl: {
+              label: {
+                en: "Image URL",
+              },
+              type: "Text",
+            },
+          },
+        },
+      },
       description: {
-        en: "Array of dealt card data that can be bound to external variables",
+        en: "Result of dealt cards, bind to a variable to access",
+      },
+    },
+    showDebugInfo: {
+      label: {
+        en: "Show Debug Info",
+      },
+      type: "OnOff",
+      defaultValue: false,
+      section: "Debug",
+      description: {
+        en: "Display debug information about the component's state",
       },
     },
   },
-  events: {
-    "cards-dealt": {
+  actions: [
+    {
+      name: "getCards",
+      label: {
+        en: "Get Dealt Cards",
+      },
+      description: {
+        en: "Retrieve the currently dealt cards",
+      },
+      result: {
+        type: "Array",
+      },
+    },
+    {
+      name: "clearCards",
+      label: {
+        en: "Clear Cards",
+      },
+      description: {
+        en: "Clear all dealt cards",
+      },
+      result: {
+        type: "Boolean",
+      },
+    },
+    {
+      name: "getCardCount",
+      label: {
+        en: "Card Count",
+      },
+      description: {
+        en: "Get the number of currently dealt cards",
+      },
+      result: {
+        type: "Number",
+      },
+    },
+  ],
+  triggerEvents: [
+    {
+      name: "cardsDealt",
       label: {
         en: "Cards Dealt",
       },
       description: {
-        en: "Triggered when cards have been dealt and revealed",
+        en: "Triggered when cards are dealt, includes card data",
       },
-      // The event returns the array of dealt card data
-      returnType: { type: "Array" },
+      event: {
+        count: { type: "Number", label: "Dealt Card Count" },
+        firstCardTitle: { type: "Text", label: "First Card Title" },
+        card1: { type: "Object", label: "Card 1" },
+        card2: { type: "Object", label: "Card 2" },
+        card3: { type: "Object", label: "Card 3" },
+        card4: { type: "Object", label: "Card 4" },
+        card5: { type: "Object", label: "Card 5" },
+        cardsJson: { type: "Text", label: "All Cards (JSON)" },
+        rawCards: { type: "Array", label: "All Dealt Cards (Raw)" },
+      },
     },
-  },
+    {
+      name: "cardsCleared",
+      label: {
+        en: "Cards Cleared",
+      },
+      description: {
+        en: "Triggered when cards are cleared",
+      },
+      event: {},
+    },
+  ],
 };
