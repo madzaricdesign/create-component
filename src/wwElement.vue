@@ -31,6 +31,7 @@ export default {
   data() {
     return {
       deckCards: [],
+      dealtCards: [],
       isAnimating: false,
       cardWidth: 120,
       cardHeight: 168,
@@ -108,8 +109,7 @@ export default {
           -15
         )})`,
         borderRadius: "10px",
-        boxShadow:
-          "0 5px 15px rgba(0, 0, 0, 0.3), 0 0 30px rgba(0, 0, 0, 0.2) inset",
+
         marginBottom: "20px",
         overflow: "hidden",
         transformStyle: "preserve-3d",
@@ -204,12 +204,23 @@ export default {
       },
       immediate: true,
     },
+    dealtCards: {
+      handler(newValue) {
+        this.$emit("update:resultCards", newValue);
+      },
+      deep: true,
+    },
   },
   mounted() {
     this.mountCount++;
     console.log(
       `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
     );
+
+    // Initialize dealtCards from content if available
+    if (this.content.resultCards) {
+      this.dealtCards = this.content.resultCards;
+    }
 
     // Update all CSS variables
     this.updateAllStyles();
@@ -787,7 +798,7 @@ export default {
       const numCards = this.cardsToDisplay;
 
       playerHandElement.innerHTML = "";
-      playerHandElement.style.bottom = "20px";
+      playerHandElement.style.bottom = "50px";
 
       const placeholdersContainer = document.createElement("div");
       placeholdersContainer.style.display = "flex";
@@ -878,6 +889,8 @@ export default {
         }
 
         if (this.isAnimating || this.deckCards.length < 1) return;
+
+        this.dealtCards = [];
 
         this.isAnimating = true;
         const shuffleDealButton = this.$refs.shuffleDealButton;
@@ -1139,6 +1152,9 @@ export default {
         const cardsToDealElements = this.deckCards.slice(-cardsToDisplayCount);
         this.deckCards.splice(-cardsToDisplayCount); // Remove from deck array
 
+        // Create array to hold the card data
+        const dealtCardsData = [];
+
         this.updateCardDimensions();
 
         const deckElement = this.$refs.deckElement;
@@ -1170,6 +1186,15 @@ export default {
         cardsToDealElements.forEach((card, i) => {
           try {
             if (i >= placeholders.length) return; // Skip if no placeholder available
+
+            // Extract and store the card data
+            dealtCardsData.push({
+              id: card.dataset.tarotId,
+              title: card.dataset.title,
+              cardNumber: card.dataset.cardNumber,
+              imageUrl: card.dataset.imageUrl || null,
+              index: i,
+            });
 
             // Get first bounds before any DOM changes
             const firstBounds = card.getBoundingClientRect();
@@ -1345,8 +1370,15 @@ export default {
           }
         });
 
+        // After all cards are dealt and animations are complete
         dealTl.add(() => {
           try {
+            // Update the dealtCards data to make it available outside
+            this.dealtCards = dealtCardsData;
+
+            // Emit a custom event for card dealing completion
+            this.$emit("cards-dealt", dealtCardsData);
+
             gsap.to(cardsToDealElements, {
               boxShadow: "0 0 8px rgba(255,255,255,0.7)",
               duration: 0.1,
@@ -1620,6 +1652,11 @@ export default {
           "https://b145kh3.myrdbx.io/wp-content/uploads/2025/02/tarot-karte-ziehen-online-179x300-1.jpg"
         }')`
       );
+    },
+
+    // Add a method to get current dealt cards
+    getDealtCards() {
+      return [...this.dealtCards]; // Return a copy of the array
     },
   },
 };

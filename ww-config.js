@@ -158,5 +158,28 @@ export default {
       defaultValue: "Shuffle & Reveal",
       section: "Content",
     },
+    resultCards: {
+      label: {
+        en: "Result Cards",
+      },
+      type: "Array",
+      section: "Data",
+      bindable: true,
+      description: {
+        en: "Array of dealt card data that can be bound to external variables",
+      },
+    },
+  },
+  events: {
+    "cards-dealt": {
+      label: {
+        en: "Cards Dealt",
+      },
+      description: {
+        en: "Triggered when cards have been dealt and revealed",
+      },
+      // The event returns the array of dealt card data
+      returnType: { type: "Array" },
+    },
   },
 };
