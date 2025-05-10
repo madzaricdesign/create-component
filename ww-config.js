@@ -263,6 +263,7 @@ export default {
       event: {
         count: { type: "Number", label: "Dealt Card Count" },
         firstCardTitle: { type: "Text", label: "First Card Title" },
+        cards: { type: "Array", label: "All Cards (Optimized)" },
         card1: { type: "Object", label: "Card 1" },
         card2: { type: "Object", label: "Card 2" },
         card3: { type: "Object", label: "Card 3" },

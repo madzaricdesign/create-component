@@ -1807,21 +1807,33 @@ export default {
             // Update the dealtCards array with the new data
             this.dealtCards = [...dealtCardsData];
 
+            // Create a simple, directly usable array of card objects
+            // WeWeb's change variable action needs clean objects without reactive Vue properties
+            const cleanCardData = dealtCardsData.map((card) => ({
+              id: card.id,
+              title: card.title,
+              cardNumber: card.cardNumber,
+              imageUrl: card.imageUrl,
+              index: card.index,
+            }));
+
             // Create payload for the event - this is what WeWeb will see in workflows
             const eventPayload = {
-              count: dealtCardsData.length,
+              count: cleanCardData.length,
               firstCardTitle:
-                dealtCardsData.length > 0 ? dealtCardsData[0].title : null,
-              // Include the JSON string representation for easier access in workflows
-              cardsJson: JSON.stringify(dealtCardsData),
-              // Individual cards are useful but not as important as the full array
-              card1: dealtCardsData.length > 0 ? dealtCardsData[0] : null,
-              card2: dealtCardsData.length > 1 ? dealtCardsData[1] : null,
-              card3: dealtCardsData.length > 2 ? dealtCardsData[2] : null,
-              card4: dealtCardsData.length > 3 ? dealtCardsData[3] : null,
-              card5: dealtCardsData.length > 4 ? dealtCardsData[4] : null,
-              // Keep the raw array as well - it will be accessible via Event.rawCards in Custom JS actions
-              rawCards: dealtCardsData,
+                cleanCardData.length > 0 ? cleanCardData[0].title : null,
+              // Include directly usable array as 'cards' for Change variable value action
+              cards: cleanCardData,
+              // Include the JSON string representation for easier access in custom JS
+              cardsJson: JSON.stringify(cleanCardData),
+              // Individual cards are useful for single-card workflows
+              card1: cleanCardData.length > 0 ? cleanCardData[0] : null,
+              card2: cleanCardData.length > 1 ? cleanCardData[1] : null,
+              card3: cleanCardData.length > 2 ? cleanCardData[2] : null,
+              card4: cleanCardData.length > 3 ? cleanCardData[3] : null,
+              card5: cleanCardData.length > 4 ? cleanCardData[4] : null,
+              // Keep the raw array as well, though 'cards' is preferred for variable updates
+              rawCards: cleanCardData,
             };
 
             // OFFICIAL WEWEB PATTERN: Use trigger-event to notify WeWeb workflows
@@ -1839,12 +1851,12 @@ export default {
             // Update content binding - this is what makes the cards available to bind in the editor
             // The resultCards property needs the full array with proper structure
             this.$emit("update:content", {
-              resultCards: dealtCardsData,
+              resultCards: cleanCardData,
             });
 
             console.log(
               "[Tarot Card Reader] Updated content binding with resultCards:",
-              dealtCardsData
+              cleanCardData
             );
 
             // Update global variable
