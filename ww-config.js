@@ -250,6 +250,30 @@ export default {
         type: "Number",
       },
     },
+    {
+      name: "updateVariableById",
+      label: {
+        en: "Update Variable By ID",
+      },
+      description: {
+        en: "Update a WeWeb variable with card data using its ID",
+      },
+      properties: {
+        variableId: {
+          label: {
+            en: "Variable ID",
+          },
+          type: "Text",
+          description: {
+            en: "The UUID of the WeWeb variable to update",
+          },
+          required: true,
+        },
+      },
+      result: {
+        type: "Boolean",
+      },
+    },
   ],
   triggerEvents: [
     {

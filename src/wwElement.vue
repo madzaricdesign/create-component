@@ -386,6 +386,8 @@ export default {
             getCardsJson: () => this.getCardsJson(),
             syncResultCards: () => this.syncResultCards(),
             getDealtCardsCount: () => this.getDealtCardsCount(),
+            updateVariableById: (variableId) =>
+              this.updateVariableById(variableId),
           };
         }
       } catch (error) {
@@ -413,6 +415,18 @@ export default {
       window.tarotReaderComponent = this;
       console.log(
         "[Tarot Card Reader] Exposed component instance as window.tarotReaderComponent"
+      );
+
+      // Add direct variable update function
+      window.updateTarotVariableById = (variableId) => {
+        console.log(
+          `[Tarot Card Reader] Global function updateTarotVariableById called for ID: ${variableId}`
+        );
+        return this.updateVariableById(variableId);
+      };
+
+      console.log(
+        "[Tarot Card Reader] Exposed global function: window.updateTarotVariableById(variableId)"
       );
     }
 
@@ -563,6 +577,14 @@ export default {
         }
         return false;
       },
+
+      // Add the variable update by ID method
+      updateVariableById: (variableId) => {
+        console.log(
+          `[Tarot Card Reader] Debug helper updateVariableById called for ID: ${variableId}`
+        );
+        return this.updateVariableById(variableId);
+      },
     };
 
     console.log("[Tarot Card Reader] Added tarotDebugHelper to window object");
@@ -682,6 +704,43 @@ export default {
       return `#${r.toString(16).padStart(2, "0")}${g
         .toString(16)
         .padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+    },
+
+    // Add new method to update a specific WeWeb variable by ID
+    updateVariableById(variableId, data = null) {
+      console.log(`[Tarot Card Reader] Updating variable ID: ${variableId}`);
+
+      // Use the cards data if not provided
+      const cardsData = data || [...this.dealtCards];
+
+      if (!variableId) {
+        console.error("[Tarot Card Reader] Variable ID is required");
+        return false;
+      }
+
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          // Clean the data for WeWeb (remove reactive properties)
+          const cleanData = JSON.parse(JSON.stringify(cardsData));
+
+          // Update the variable directly by ID
+          window.wwLib.wwVariable.updateValue(variableId, cleanData);
+
+          console.log(
+            `[Tarot Card Reader] Successfully updated variable ID: ${variableId} with:`,
+            cleanData
+          );
+          return true;
+        } catch (error) {
+          console.error(
+            `[Tarot Card Reader] Error updating variable ID ${variableId}:`,
+            error
+          );
+        }
+      } else {
+        console.error("[Tarot Card Reader] wwLib.wwVariable not available");
+      }
+      return false;
     },
 
     async fetchTarotCards() {
