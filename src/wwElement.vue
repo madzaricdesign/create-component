@@ -35,6 +35,27 @@
       ">
       <div><strong>Dealt Cards:</strong> {{ dealtCards.length }}</div>
       <pre>{{ JSON.stringify(dealtCards, null, 2) }}</pre>
+
+      <div style="margin-top: 10px">
+        <strong>content.resultCards:</strong>
+        {{ content.resultCards ? content.resultCards.length : 0 }}
+      </div>
+      <pre>{{ JSON.stringify(content.resultCards, null, 2) }}</pre>
+
+      <!-- Add manual update button -->
+      <button
+        @click="manuallyUpdateBinding()"
+        style="
+          margin-top: 10px;
+          padding: 5px 10px;
+          background: #4ac6d2;
+          color: white;
+          border: none;
+          border-radius: 3px;
+          cursor: pointer;
+        ">
+        Manually Update Binding
+      </button>
     </div>
   </div>
 </template>
@@ -51,6 +72,12 @@ export default {
   },
   emits: ["update:resultCards", "cardsDealt", "cardsCleared", "update:content"],
 
+  // Constant UUID for the variable bound to Result Cards (provided by user)
+  // eslint-disable-next-line no-unused-vars
+  consts: {
+    RESULT_CARDS_VARIABLE_ID: "24df4cc2-f65e-43ed-b3c1-55924cf31d85",
+  },
+
   // Explicitly expose functions for WeWeb actions
   wwFunctions: {
     getCards() {
@@ -63,25 +90,29 @@ export default {
       // Clear the local array
       this.dealtCards = [];
 
-      // Update using the proper WeWeb binding pattern
-      this.$emit("update:content", {
-        resultCards: [],
-      });
+      // CORRECT APPROACH: Create a copy of content, don't modify directly
+      // Add a delay to ensure WeWeb has time to process
+      setTimeout(() => {
+        this.$emit("update:content", {
+          ...this.content, // Keep all other properties
+          resultCards: [], // Update just resultCards with empty array
+        });
 
-      console.log(
-        "[Tarot Card Reader] Cleared resultCards property in content binding"
-      );
+        console.log(
+          "[Tarot Card Reader] Cleared resultCards binding with delay"
+        );
+      }, 100);
 
-      // Update global variable
-      window.tarotDealtCards = [];
-
-      // Emit the cards-cleared event using the trigger-event pattern
-      this.$emit("trigger-event", {
-        name: "cardsCleared",
-        payload: {},
-      });
-
-      console.log("[Tarot Card Reader] Emitted cardsCleared event");
+      // Emit the cards-cleared event for workflows with a delay
+      setTimeout(() => {
+        this.$emit("trigger-event", {
+          name: "cardsCleared",
+          payload: {},
+        });
+        console.log(
+          "[Tarot Card Reader] Emitted cardsCleared event with delay"
+        );
+      }, 1000); // 1 second delay for workflow
 
       return true;
     },
@@ -94,7 +125,7 @@ export default {
   data() {
     return {
       deckCards: [],
-      dealtCards: [],
+      dealtCards: [], // Always initialize as empty array
       isAnimating: false,
       cardWidth: 120,
       cardHeight: 168,
@@ -113,7 +144,7 @@ export default {
   computed: {
     wwDefaultContent() {
       return {
-        resultCards: [],
+        resultCards: [], // Always provide a default empty array
       };
     },
     cssVars() {
@@ -272,53 +303,6 @@ export default {
       },
       immediate: true,
     },
-    dealtCards: {
-      handler(newValueProxy) {
-        console.log(
-          `[Tarot Card Reader] WATCHER: dealtCards updated. New length: ${
-            newValueProxy ? newValueProxy.length : 0
-          }`
-        );
-
-        // Only handle data binding updates here, not event emission
-        const plainDealtCards = [...newValueProxy];
-
-        // Update binding properties in content
-        this.$emit("update:content", {
-          resultCards: plainDealtCards,
-        });
-
-        // Update global variable
-        window.tarotDealtCards = plainDealtCards;
-
-        // No event emission here - events are now emitted directly in the animation sequence
-      },
-      deep: true,
-    },
-    "content.resultCards": {
-      handler(newValue) {
-        if (
-          newValue &&
-          Array.isArray(newValue) &&
-          JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
-        ) {
-          console.log(
-            `[Tarot Card Reader] External update to resultCards detected:`,
-            newValue
-          );
-
-          // Update our internal state
-          this.dealtCards = [...newValue];
-
-          // Update global variable
-          window.tarotDealtCards = [...newValue];
-          console.log(
-            "[Tarot Card Reader] Updated global variable with external data"
-          );
-        }
-      },
-      deep: true,
-    },
     "content.dealtCardsData": {
       handler(newValue) {
         if (
@@ -343,6 +327,74 @@ export default {
       },
       deep: true,
     },
+    // Sync internal dealtCards when resultCards is updated externally (from WeWeb binding)
+    "content.resultCards": {
+      handler(newValue) {
+        if (
+          newValue &&
+          Array.isArray(newValue) &&
+          JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
+        ) {
+          console.log(
+            `[Tarot Card Reader] External update to content.resultCards detected:`,
+            newValue
+          );
+
+          // Update our internal state
+          this.dealtCards = [...newValue];
+
+          // Update global variable (for backwards compatibility)
+          window.tarotDealtCards = [...newValue];
+        }
+      },
+      deep: true,
+    },
+    // Emit dedicated update event whenever dealtCards changes so WeWeb can propagate the
+    // resultCards binding to variables / workflows in a fully supported way.
+    dealtCards: {
+      handler(newVal) {
+        console.log(
+          `[Tarot Card Reader] dealtCards watcher triggered, length: ${
+            newVal ? newVal.length : 0
+          }`
+        );
+        this.$emit(
+          "update:resultCards",
+          Array.isArray(newVal) ? [...newVal] : []
+        );
+
+        // Diagnostics – confirm WeWeb sees the emit after next tick
+        this.$nextTick(() => {
+          console.log(
+            "[Tarot Card Reader] (debug) emitted update:resultCards with array:",
+            newVal
+          );
+        });
+
+        // Auto-sync the external variable directly for extra reliability
+        if (window.wwLib && window.wwLib.wwVariable) {
+          try {
+            const clean = Array.isArray(newVal)
+              ? JSON.parse(JSON.stringify(newVal))
+              : [];
+            window.wwLib.wwVariable.updateValue(
+              "24df4cc2-f65e-43ed-b3c1-55924cf31d85",
+              clean
+            );
+            console.log(
+              "[Tarot Card Reader] (auto-sync) Updated variable ID 24df4cc2-f65e-43ed-b3c1-55924cf31d85 with",
+              clean
+            );
+          } catch (syncErr) {
+            console.warn(
+              "[Tarot Card Reader] (auto-sync) Failed to update variable:",
+              syncErr
+            );
+          }
+        }
+      },
+      deep: true,
+    },
   },
   mounted() {
     this.mountCount++;
@@ -350,15 +402,55 @@ export default {
       `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
     );
 
-    // WeWeb components trigger workflows using this.$emit("trigger-event", {name, payload})
-    // No need for DOM-level event listeners
+    // Initialize safe default values
+    this.initializeComponentDefaults();
 
-    // Initialize dealtCards from content if available
-    if (this.content.resultCards && this.content.resultCards.length) {
-      this.dealtCards = [...this.content.resultCards];
+    // Add debugging methods for direct variable access
+    if (typeof window !== "undefined") {
+      window.tarotHelper = {
+        updateLorem: () => {
+          if (window.wwLib && window.wwLib.wwVariable) {
+            try {
+              window.wwLib.wwVariable.updateValue("lorem", [
+                ...this.dealtCards,
+              ]);
+              console.log(
+                "[Tarot Card Reader] Direct update to 'lorem' via tarotHelper"
+              );
+              return true;
+            } catch (err) {
+              console.error(
+                "[Tarot Card Reader] Error updating lorem variable:",
+                err
+              );
+              return false;
+            }
+          }
+          return false;
+        },
+        getDealtCards: () => {
+          return [...this.dealtCards];
+        },
+        getContentResultCards: () => {
+          return this.content.resultCards ? [...this.content.resultCards] : [];
+        },
+        getAllVars: () => {
+          if (window.wwLib && window.wwLib.wwVariable) {
+            try {
+              return window.wwLib.wwVariable.getValues();
+            } catch (err) {
+              console.error(
+                "[Tarot Card Reader] Error getting variables:",
+                err
+              );
+              return null;
+            }
+          }
+          return null;
+        },
+      };
       console.log(
-        `[Tarot Card Reader] Initialized dealtCards from content:`,
-        this.dealtCards
+        "[Tarot Card Reader] Added tarotHelper for direct variable access"
       );
     }
 
@@ -429,43 +521,6 @@ export default {
         "[Tarot Card Reader] Exposed global function: window.updateTarotVariableById(variableId)"
       );
     }
-
-    // Add a global function to manually trigger WeWeb events
-    window.triggerTarotEvent = (eventName) => {
-      if (eventName === "cards-dealt") {
-        console.log(
-          "[Tarot Card Reader] Manually triggering cards-dealt event with data:",
-          this.dealtCards
-        );
-        // Create and dispatch a custom event on the document
-        const event = new CustomEvent("cards-dealt", {
-          bubbles: true,
-          detail: {
-            eventId: Date.now().toString(),
-            data: [...this.dealtCards],
-          },
-        });
-        document.dispatchEvent(event);
-        return true;
-      } else if (eventName === "cards-cleared") {
-        console.log(
-          "[Tarot Card Reader] Manually triggering cards-cleared event"
-        );
-        // Create and dispatch a custom event on the document
-        const event = new CustomEvent("cards-cleared", {
-          bubbles: true,
-          detail: {
-            eventId: Date.now().toString(),
-          },
-        });
-        document.dispatchEvent(event);
-        return true;
-      }
-      return false;
-    };
-    console.log(
-      "[Tarot Card Reader] Exposed global function: window.triggerTarotEvent()"
-    );
 
     // Update all CSS variables
     this.updateAllStyles();
@@ -542,6 +597,14 @@ export default {
         return false;
       },
 
+      // Add the variable update by ID method
+      updateVariableById: (variableId) => {
+        console.log(
+          `[Tarot Card Reader] Debug helper updateVariableById called for ID: ${variableId}`
+        );
+        return this.updateVariableById(variableId);
+      },
+
       // Inspect all WeWeb variables (helpful for debugging)
       inspectVariables: () => {
         if (window.wwLib && window.wwLib.wwVariable) {
@@ -577,108 +640,53 @@ export default {
         }
         return false;
       },
-
-      // Add the variable update by ID method
-      updateVariableById: (variableId) => {
-        console.log(
-          `[Tarot Card Reader] Debug helper updateVariableById called for ID: ${variableId}`
-        );
-        return this.updateVariableById(variableId);
-      },
     };
 
     console.log("[Tarot Card Reader] Added tarotDebugHelper to window object");
 
-    // Initialize the global tarotDealtCards variable for external access
-    window.tarotDealtCards = this.dealtCards.length ? [...this.dealtCards] : [];
+    // Add a simple workflow helper method inside the mounted function
     console.log(
-      "[Tarot Card Reader] Initialized global window.tarotDealtCards variable"
+      "[Tarot Card Reader] Added tarotHelper for direct variable access"
     );
 
-    // Add to the mounted method after the other initialization
-    // Direct cardRes handling - we know the exact variable name from the screenshot
-    // console.log("[Tarot Card Reader] Setting up direct cardRes handling");
+    // Add workflow JavaScript helper
+    window.updateLoremFromTarot = function () {
+      // Simple function to update the lorem variable from dealt cards
+      const component = window.tarotReaderComponent;
+      if (!component) {
+        console.error("[Tarot Workflow] Component not found");
+        return { success: false, reason: "component_not_found" };
+      }
 
-    // First check if the variable exists
-    // if (window.wwLib && window.wwLib.wwVariable) {
-    //   try {
-    // Create a periodic check for dealtCards updates that will sync to cardRes
-    // const cardResSyncInterval = setInterval(() => {
-    //   if (this.dealtCards && this.dealtCards.length > 0) {
-    //     window.wwLib.wwVariable.updateValue("cardRes", [
-    //       ...this.dealtCards,
-    //     ]);
-    //     console.log(
-    //       "[Tarot Card Reader] Synced cardRes with dealtCards (from interval):",
-    //       this.dealtCards
-    //     );
-    //   }
-    // }, 1000); // Check every second
+      const cards = component.dealtCards || [];
 
-    // // Clean up the interval when component is unmounted
-    // this.$once("hook:beforeDestroy", () => {
-    //   clearInterval(cardResSyncInterval);
-    //   console.log("[Tarot Card Reader] Cleared cardRes sync interval");
-    // });
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          // Clean the data for variable update
+          const cleanCards = JSON.parse(JSON.stringify(cards));
+          window.wwLib.wwVariable.updateValue("lorem", cleanCards);
+          console.log(
+            "[Tarot Workflow] Updated 'lorem' variable with",
+            cleanCards.length,
+            "cards"
+          );
+          return {
+            success: true,
+            cardCount: cleanCards.length,
+            data: cleanCards,
+          };
+        } catch (err) {
+          console.error("[Tarot Workflow] Error updating variable:", err);
+          return { success: false, reason: "update_error", error: err.message };
+        }
+      }
 
-    // Also create a direct function to force update
-    // window.forceCardResUpdate = () => {
-    //   window.wwLib.wwVariable.updateValue("cardRes", [...this.dealtCards]);
-    //   console.log(
-    //     "[Tarot Card Reader] Forced cardRes update with:",
-    //     this.dealtCards
-    //   );
+      return { success: false, reason: "wwlib_not_found" };
+    };
 
-    // Check for empty result
-    // setTimeout(() => {
-    //   const cardResValue = window.wwLib.wwVariable.getValue("cardRes");
-    //   console.log(
-    //     "[Tarot Card Reader] cardRes value after update:",
-    //     cardResValue
-    //   );
-    //   if (
-    //     !cardResValue ||
-    //     (Array.isArray(cardResValue) && cardResValue.length === 0)
-    //   ) {
-    //     console.log(
-    //       "[Tarot Card Reader] cardRes is still empty, trying alternate approach"
-    //     );
-    // Try an alternate approach - override the getter
-    // try {
-    //   // This is an aggressive approach to override wwVariable's getter
-    //   const originalGetValue = window.wwLib.wwVariable.getValue;
-    //   window.wwLib.wwVariable.getValue = function (name) {
-    //     if (name === "cardRes") {
-    //       console.log(
-    //         "[Tarot Card Reader] Intercepted cardRes get request"
-    //       );
-    //       return [...this.dealtCards];
-    //     }
-    //     return originalGetValue.call(window.wwLib.wwVariable, name);
-    //   }.bind(this);
-    //   console.log(
-    //     "[Tarot Card Reader] Successfully overrode getValue for cardRes"
-    //   );
-    // } catch (e) {
-    //   console.error(
-    //     "[Tarot Card Reader] Error overriding getValue:",
-    //     e
-    //   );
-    // }
-    //   }
-    // }, 100);
-    // };
-
-    //     console.log(
-    //       "[Tarot Card Reader] Added window.forceCardResUpdate() function"
-    //     );
-    //   } catch (error) {
-    //     console.error(
-    //       "[Tarot Card Reader] Error setting up cardRes handling:",
-    //       error
-    //     );
-    //   }
-    // }
+    console.log(
+      "[Tarot Card Reader] Added workflow helper function window.updateLoremFromTarot()"
+    );
   },
   beforeUnmount() {
     console.log(`[Tarot Card Reader] v${this.version} - Component unmounting`);
@@ -690,6 +698,73 @@ export default {
     }
   },
   methods: {
+    // Helper method to initialize component with safe defaults
+    initializeComponentDefaults() {
+      console.log("[Tarot Card Reader] Initializing component defaults");
+
+      // Make sure content has all expected properties with defaults
+      if (!this.content) {
+        console.warn("[Tarot Card Reader] Content object is missing!");
+        return;
+      }
+
+      // Initialize dealtCards from content.resultCards if available
+      if (this.content.resultCards && Array.isArray(this.content.resultCards)) {
+        // Make a clean copy to avoid reactivity issues
+        const cards = JSON.parse(JSON.stringify(this.content.resultCards));
+        this.dealtCards = cards;
+        console.log(
+          "[Tarot Card Reader] Initialized dealtCards from content.resultCards:",
+          cards
+        );
+      } else {
+        // Initialize with empty array
+        this.dealtCards = [];
+
+        // Initialize content.resultCards if missing with an empty array
+        if (!this.content.resultCards) {
+          console.log(
+            "[Tarot Card Reader] content.resultCards missing, initializing with empty array"
+          );
+          this.$emit("update:content", {
+            ...this.content,
+            resultCards: [],
+          });
+        }
+      }
+
+      // Ensure global variable always exists and is updated
+      window.tarotDealtCards =
+        this.dealtCards.length > 0 ? [...this.dealtCards] : [];
+
+      // Add global trigger event function if not already defined
+      if (!window.triggerTarotEvent) {
+        window.triggerTarotEvent = (eventName) => {
+          if (eventName === "cards-dealt") {
+            this.$emit("trigger-event", {
+              name: "cardsDealt",
+              payload: {
+                cards: [...this.dealtCards],
+                count: this.dealtCards.length,
+                firstCardTitle:
+                  this.dealtCards.length > 0 ? this.dealtCards[0].title : null,
+              },
+            });
+            return true;
+          } else if (eventName === "cards-cleared") {
+            this.$emit("trigger-event", {
+              name: "cardsCleared",
+              payload: {},
+            });
+            return true;
+          }
+          return false;
+        };
+      }
+
+      console.log("[Tarot Card Reader] Component defaults initialized");
+    },
+
     adjustColor(hex, percent) {
       hex = hex.replace(/^#/, "");
 
@@ -1858,16 +1933,9 @@ export default {
         // After all cards are dealt and animations are complete
         dealTl.add(() => {
           try {
-            console.log(
-              `[Tarot Card Reader] Final card data array before assignment to this.dealtCards:`,
-              JSON.parse(JSON.stringify(dealtCardsData)) // Log a clean copy
-            );
+            console.log("[Tarot Card Reader] Finalizing dealt cards");
 
-            // Update the dealtCards array with the new data
-            this.dealtCards = [...dealtCardsData];
-
-            // Create a simple, directly usable array of card objects
-            // WeWeb's change variable action needs clean objects without reactive Vue properties
+            // Create a clean, non-reactive copy of the card data
             const cleanCardData = dealtCardsData.map((card) => ({
               id: card.id,
               title: card.title,
@@ -1876,61 +1944,75 @@ export default {
               index: card.index,
             }));
 
-            // Create payload for the event - this is what WeWeb will see in workflows
+            // Update our internal state
+            this.dealtCards = cleanCardData;
+
+            // CORRECT APPROACH: Create a copy of content, don't modify directly
+            // Add a delay to ensure WeWeb has time to process the binding
+            setTimeout(() => {
+              this.$emit("update:content", {
+                ...this.content, // Keep all other properties
+                resultCards: cleanCardData, // Update just resultCards
+              });
+
+              console.log(
+                "[Tarot Card Reader] Emitted update:content with resultCards",
+                cleanCardData
+              );
+
+              // Emit dedicated event right after, to ensure external variable receives the update
+              this.$emit("update:resultCards", cleanCardData);
+
+              console.log(
+                "[Tarot Card Reader] Emitted update:resultCards directly after update:content"
+              );
+
+              // Verify sync after a short delay
+              setTimeout(() => {
+                this.verifyVariableSync(cleanCardData);
+              }, 200);
+            }, 1000); // 1 second delay as you mentioned
+
+            // Create workflow payload
             const eventPayload = {
               count: cleanCardData.length,
               firstCardTitle:
                 cleanCardData.length > 0 ? cleanCardData[0].title : null,
-              // Include directly usable array as 'cards' for Change variable value action
               cards: cleanCardData,
-              // Include the JSON string representation for easier access in custom JS
               cardsJson: JSON.stringify(cleanCardData),
-              // Individual cards are useful for single-card workflows
               card1: cleanCardData.length > 0 ? cleanCardData[0] : null,
               card2: cleanCardData.length > 1 ? cleanCardData[1] : null,
               card3: cleanCardData.length > 2 ? cleanCardData[2] : null,
               card4: cleanCardData.length > 3 ? cleanCardData[3] : null,
               card5: cleanCardData.length > 4 ? cleanCardData[4] : null,
-              // Keep the raw array as well, though 'cards' is preferred for variable updates
               rawCards: cleanCardData,
             };
 
-            // OFFICIAL WEWEB PATTERN: Use trigger-event to notify WeWeb workflows
-            // This is the ONLY emission point for cardsDealt to avoid duplicate triggers
-            this.$emit("trigger-event", {
-              name: "cardsDealt",
-              payload: eventPayload,
-            });
+            // Emit the event for workflows with a delay
+            setTimeout(() => {
+              this.$emit("trigger-event", {
+                name: "cardsDealt",
+                payload: eventPayload,
+              });
 
-            console.log(
-              "[Tarot Card Reader] Emitted 'trigger-event' with name: 'cardsDealt' and payload:",
-              eventPayload
-            );
+              console.log(
+                "[Tarot Card Reader] Emitted workflow event with delay"
+              );
+            }, 1000); // 1 second delay as you mentioned
 
-            // Update content binding - this is what makes the cards available to bind in the editor
-            // The resultCards property needs the full array with proper structure
-            this.$emit("update:content", {
-              resultCards: cleanCardData,
-            });
-
-            console.log(
-              "[Tarot Card Reader] Updated content binding with resultCards:",
-              cleanCardData
-            );
-
-            // Update global variable
-            window.tarotDealtCards = dealtCardsData;
-
-            // Add visual effect (optional, can be kept)
+            // Add visual effect
             gsap.to(cardsToDealElements, {
               boxShadow: "0 0 8px rgba(255,255,255,0.7)",
               duration: 0.1,
               yoyo: true,
               repeat: 1,
             });
+
+            // Inform WeWeb bindings immediately
+            this.$emit("update:resultCards", cleanCardData);
           } catch (err) {
             console.error(
-              "[Tarot Card Reader] - Error in dealTl.add callback after assigning to this.dealtCards:",
+              "[Tarot Card Reader] - Error in dealTl.add callback:",
               err
             );
           }
@@ -2216,10 +2298,8 @@ export default {
       // Clear the local array
       this.dealtCards = [];
 
-      // Update using the proper WeWeb binding pattern
-      this.$emit("update:content", {
-        resultCards: [],
-      });
+      // Notify WeWeb bindings immediately
+      this.$emit("update:resultCards", []);
 
       console.log(
         "[Tarot Card Reader] Cleared resultCards property in content binding"
@@ -2235,6 +2315,20 @@ export default {
       });
 
       console.log("[Tarot Card Reader] Emitted cardsCleared event");
+
+      // Reflect the change in the full content object first
+      this.$emit("update:content", {
+        ...this.content,
+        resultCards: [],
+      });
+
+      // Then emit the dedicated update so external bindings are refreshed
+      this.$emit("update:resultCards", []);
+
+      // Verify after short delay
+      setTimeout(() => {
+        this.verifyVariableSync([]);
+      }, 200);
 
       return true;
     },
@@ -2411,6 +2505,101 @@ export default {
       const count = this.dealtCards ? this.dealtCards.length : 0;
       console.log("[Tarot Card Reader] Returning dealt cards count:", count);
       return count;
+    },
+
+    // Simplify the testUpdateBinding method to use a more direct approach
+    testUpdateBinding() {
+      // Create test data
+      const testCards = [
+        {
+          id: "test-card-1",
+          title: "Test Card 1",
+          cardNumber: "1",
+          imageUrl: "https://example.com/card1.jpg",
+          index: 0,
+        },
+        {
+          id: "test-card-2",
+          title: "Test Card 2",
+          cardNumber: "2",
+          imageUrl: "https://example.com/card2.jpg",
+          index: 1,
+        },
+        {
+          id: "test-card-3",
+          title: "Test Card 3",
+          cardNumber: "3",
+          imageUrl: "https://example.com/card3.jpg",
+          index: 2,
+        },
+      ];
+
+      console.log("[Tarot Card Reader] Creating test cards");
+
+      // Set local data
+      this.dealtCards = testCards;
+
+      // Skip the binding update for now - we'll do it manually
+      console.log(
+        "[Tarot Card Reader] Test cards created, use the manual update button"
+      );
+
+      return testCards;
+    },
+
+    // Implement the manual binding update method
+    manuallyUpdateBinding() {
+      console.log("[Tarot Card Reader] Manually updating binding");
+
+      // Create a new object for content update
+      const contentUpdate = Object.assign({}, this.content);
+
+      // Assign cards to resultCards property
+      contentUpdate.resultCards = [...this.dealtCards];
+
+      // Emit the update
+      this.$emit("update:content", contentUpdate);
+
+      console.log("[Tarot Card Reader] Manual binding update complete");
+
+      // Also try the direct update to WeWeb variable in case binding doesn't work
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          // Direct variable update by ID using helper (user-provided UUID)
+          const variableId = "24df4cc2-f65e-43ed-b3c1-55924cf31d85";
+          this.updateVariableById(variableId);
+          console.log(
+            `[Tarot Card Reader] Direct update to variable ID ${variableId} attempted`
+          );
+        } catch (err) {
+          console.error("[Tarot Card Reader] Error updating variable:", err);
+        }
+      }
+    },
+
+    // Helper to check if external variable has been updated
+    verifyVariableSync(expectedArray = null) {
+      if (window.wwLib && window.wwLib.wwVariable) {
+        try {
+          const current = window.wwLib.wwVariable.getValue(
+            "24df4cc2-f65e-43ed-b3c1-55924cf31d85"
+          );
+          console.log(
+            "[Tarot Card Reader] (debug) Variable current value vs expected:",
+            current,
+            expectedArray
+          );
+        } catch (err) {
+          console.warn(
+            "[Tarot Card Reader] (debug) Could not fetch variable value for verification:",
+            err
+          );
+        }
+      } else {
+        console.warn(
+          "[Tarot Card Reader] (debug) wwLib.wwVariable unavailable when verifying sync"
+        );
+      }
     },
   },
 };

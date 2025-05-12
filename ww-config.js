@@ -165,34 +165,52 @@ export default {
       type: "Array",
       section: "Data",
       bindable: true,
+      defaultValue: [],
       options: {
         item: {
           type: "Object",
-          defaultValue: {},
+          defaultValue: {
+            id: "",
+            title: "",
+            cardNumber: "",
+            imageUrl: "",
+            index: 0,
+          },
           options: {
             title: {
               label: {
                 en: "Title",
               },
               type: "Text",
+              defaultValue: "",
             },
             id: {
               label: {
                 en: "ID",
               },
               type: "Text",
+              defaultValue: "",
             },
             cardNumber: {
               label: {
                 en: "Card Number",
               },
               type: "Text",
+              defaultValue: "",
             },
             imageUrl: {
               label: {
                 en: "Image URL",
               },
               type: "Text",
+              defaultValue: "",
+            },
+            index: {
+              label: {
+                en: "Index",
+              },
+              type: "Number",
+              defaultValue: 0,
             },
           },
         },
