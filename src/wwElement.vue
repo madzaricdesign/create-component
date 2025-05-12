@@ -72,11 +72,10 @@ export default {
   },
   emits: ["update:resultCards", "cardsDealt", "cardsCleared", "update:content"],
 
-  // Constant UUID for the variable bound to Result Cards (provided by user)
-  // eslint-disable-next-line no-unused-vars
-  consts: {
-    RESULT_CARDS_VARIABLE_ID: "24df4cc2-f65e-43ed-b3c1-55924cf31d85",
-  },
+  // NOTE: we no longer keep a hard-coded variable ID in the component.  Any
+  // direct push to a WeWeb variable should be done externally (for example in
+  // the binding's JavaScript formula) or via the `updateVariableById` helper
+  // method that accepts an ID at runtime.
 
   // Explicitly expose functions for WeWeb actions
   wwFunctions: {
@@ -353,45 +352,13 @@ export default {
     // resultCards binding to variables / workflows in a fully supported way.
     dealtCards: {
       handler(newVal) {
-        console.log(
-          `[Tarot Card Reader] dealtCards watcher triggered, length: ${
-            newVal ? newVal.length : 0
-          }`
-        );
+        // Dealt cards changed – propagate the standard update event
         this.$emit(
           "update:resultCards",
           Array.isArray(newVal) ? [...newVal] : []
         );
 
-        // Diagnostics – confirm WeWeb sees the emit after next tick
-        this.$nextTick(() => {
-          console.log(
-            "[Tarot Card Reader] (debug) emitted update:resultCards with array:",
-            newVal
-          );
-        });
-
-        // Auto-sync the external variable directly for extra reliability
-        if (window.wwLib && window.wwLib.wwVariable) {
-          try {
-            const clean = Array.isArray(newVal)
-              ? JSON.parse(JSON.stringify(newVal))
-              : [];
-            window.wwLib.wwVariable.updateValue(
-              "24df4cc2-f65e-43ed-b3c1-55924cf31d85",
-              clean
-            );
-            console.log(
-              "[Tarot Card Reader] (auto-sync) Updated variable ID 24df4cc2-f65e-43ed-b3c1-55924cf31d85 with",
-              clean
-            );
-          } catch (syncErr) {
-            console.warn(
-              "[Tarot Card Reader] (auto-sync) Failed to update variable:",
-              syncErr
-            );
-          }
-        }
+        // No per-frame logging or verification – keeps the editor fast
       },
       deep: true,
     },
@@ -409,23 +376,9 @@ export default {
     if (typeof window !== "undefined") {
       window.tarotHelper = {
         updateLorem: () => {
-          if (window.wwLib && window.wwLib.wwVariable) {
-            try {
-              window.wwLib.wwVariable.updateValue("lorem", [
-                ...this.dealtCards,
-              ]);
-              console.log(
-                "[Tarot Card Reader] Direct update to 'lorem' via tarotHelper"
-              );
-              return true;
-            } catch (err) {
-              console.error(
-                "[Tarot Card Reader] Error updating lorem variable:",
-                err
-              );
-              return false;
-            }
-          }
+          console.warn(
+            "[Tarot Card Reader] updateLorem() deprecated – no action taken."
+          );
           return false;
         },
         getDealtCards: () => {
@@ -649,39 +602,12 @@ export default {
       "[Tarot Card Reader] Added tarotHelper for direct variable access"
     );
 
-    // Add workflow JavaScript helper
+    // Add workflow JavaScript helper (deprecated)
     window.updateLoremFromTarot = function () {
-      // Simple function to update the lorem variable from dealt cards
-      const component = window.tarotReaderComponent;
-      if (!component) {
-        console.error("[Tarot Workflow] Component not found");
-        return { success: false, reason: "component_not_found" };
-      }
-
-      const cards = component.dealtCards || [];
-
-      if (window.wwLib && window.wwLib.wwVariable) {
-        try {
-          // Clean the data for variable update
-          const cleanCards = JSON.parse(JSON.stringify(cards));
-          window.wwLib.wwVariable.updateValue("lorem", cleanCards);
-          console.log(
-            "[Tarot Workflow] Updated 'lorem' variable with",
-            cleanCards.length,
-            "cards"
-          );
-          return {
-            success: true,
-            cardCount: cleanCards.length,
-            data: cleanCards,
-          };
-        } catch (err) {
-          console.error("[Tarot Workflow] Error updating variable:", err);
-          return { success: false, reason: "update_error", error: err.message };
-        }
-      }
-
-      return { success: false, reason: "wwlib_not_found" };
+      console.warn(
+        "[Tarot Workflow] updateLoremFromTarot() deprecated – use updateVariableById(id) instead."
+      );
+      return { success: false, reason: "helper_deprecated" };
     };
 
     console.log(
@@ -799,7 +725,12 @@ export default {
           const cleanData = JSON.parse(JSON.stringify(cardsData));
 
           // Update the variable directly by ID
-          window.wwLib.wwVariable.updateValue(variableId, cleanData);
+          if (typeof window.wwLib.wwVariable.updateValueById === "function") {
+            window.wwLib.wwVariable.updateValueById(variableId, cleanData);
+          } else {
+            // Fallback for older WeWeb runtimes
+            window.wwLib.wwVariable.updateValue(variableId, cleanData);
+          }
 
           console.log(
             `[Tarot Card Reader] Successfully updated variable ID: ${variableId} with:`,
@@ -1967,10 +1898,7 @@ export default {
                 "[Tarot Card Reader] Emitted update:resultCards directly after update:content"
               );
 
-              // Verify sync after a short delay
-              setTimeout(() => {
-                this.verifyVariableSync(cleanCardData);
-              }, 200);
+              // (Verification helper removed)
             }, 1000); // 1 second delay as you mentioned
 
             // Create workflow payload
@@ -2325,12 +2253,7 @@ export default {
       // Then emit the dedicated update so external bindings are refreshed
       this.$emit("update:resultCards", []);
 
-      // Verify after short delay
-      setTimeout(() => {
-        this.verifyVariableSync([]);
-      }, 200);
-
-      return true;
+      // (Verification helper removed)
     },
 
     // In the script section, add a special API method that WeWeb can access
@@ -2562,42 +2485,25 @@ export default {
 
       console.log("[Tarot Card Reader] Manual binding update complete");
 
-      // Also try the direct update to WeWeb variable in case binding doesn't work
-      if (window.wwLib && window.wwLib.wwVariable) {
-        try {
-          // Direct variable update by ID using helper (user-provided UUID)
-          const variableId = "24df4cc2-f65e-43ed-b3c1-55924cf31d85";
-          this.updateVariableById(variableId);
-          console.log(
-            `[Tarot Card Reader] Direct update to variable ID ${variableId} attempted`
-          );
-        } catch (err) {
-          console.error("[Tarot Card Reader] Error updating variable:", err);
-        }
-      }
+      // If you need to push the dealt cards manually, call
+      // `window.tarotReaderComponent.updateVariableById(theUuid)` from a
+      // workflow or the browser console.  No hard-coded ID here anymore.
     },
 
-    // Helper to check if external variable has been updated
-    verifyVariableSync(expectedArray = null) {
-      if (window.wwLib && window.wwLib.wwVariable) {
-        try {
-          const current = window.wwLib.wwVariable.getValue(
-            "24df4cc2-f65e-43ed-b3c1-55924cf31d85"
-          );
-          console.log(
-            "[Tarot Card Reader] (debug) Variable current value vs expected:",
-            current,
-            expectedArray
-          );
-        } catch (err) {
-          console.warn(
-            "[Tarot Card Reader] (debug) Could not fetch variable value for verification:",
-            err
-          );
-        }
-      } else {
+    // Basic helper left in place for external calls – no hard-coded ID.
+    verifyVariableSync(id, expectedArray = null) {
+      if (!id || !window.wwLib || !window.wwLib.wwVariable) return;
+      try {
+        const current = window.wwLib.wwVariable.getValue(id);
+        console.log(
+          `[Tarot Card Reader] verifyVariableSync → variable ${id}:`,
+          current,
+          expectedArray
+        );
+      } catch (err) {
         console.warn(
-          "[Tarot Card Reader] (debug) wwLib.wwVariable unavailable when verifying sync"
+          `[Tarot Card Reader] verifyVariableSync failed for ${id}:`,
+          err
         );
       }
     },
