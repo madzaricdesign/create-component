@@ -1,6 +1,24 @@
 <template>
   <div class="tarot-reader" :style="rootStyles">
-    <div class="game-area" ref="gameArea" :style="gameAreaStyles">
+    <!-- Skeleton loader that shows during initial loading -->
+    <div class="skeleton-loader" v-show="isLoading">
+      <div class="skeleton-deck"></div>
+      <div class="skeleton-placeholders">
+        <div
+          class="skeleton-card"
+          v-for="i in content.defaultCardOption || 3"
+          :key="i"
+          :style="{ '--i': i }"></div>
+      </div>
+      <div class="skeleton-button"></div>
+    </div>
+
+    <!-- Main content that shows once loaded -->
+    <div
+      class="game-area"
+      ref="gameArea"
+      :style="gameAreaStyles"
+      v-show="!isLoading">
       <div class="deck-area" id="deck" ref="deckElement">
         <!-- Cards will be added here by JS -->
       </div>
@@ -9,7 +27,7 @@
       </div>
     </div>
 
-    <div class="controls">
+    <div class="controls" v-show="!isLoading">
       <button
         id="shuffle-deal-button"
         ref="shuffleDealButton"
@@ -139,6 +157,7 @@ export default {
       mountCount: 0,
       resizeTimeout: null,
       lastDeckClickTime: null,
+      isLoading: true,
     };
   },
   computed: {
@@ -382,6 +401,9 @@ export default {
     console.log(
       `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
     );
+
+    // Start with loading state
+    this.isLoading = true;
 
     // Initialize safe default values
     this.initializeComponentDefaults();
@@ -946,15 +968,20 @@ export default {
         );
       }
 
+      // Set a flag to track initialization in progress
+      this.initializationInProgress = true;
+
+      // Check for required DOM elements
       if (
         !this.$refs.deckElement ||
         !this.$refs.playerHandElement ||
         !this.$refs.gameArea
       ) {
         console.warn(
-          "[Tarot Card Reader] - DOM refs not ready during initialization"
+          "[Tarot Card Reader] - DOM refs not ready during initialization, will retry after delay"
         );
 
+        // Retry after a delay to allow DOM to render
         setTimeout(() => {
           if (
             this.$refs.deckElement &&
@@ -964,15 +991,16 @@ export default {
             console.log(
               "[Tarot Card Reader] - DOM refs now available, retrying initialization"
             );
-            this.initializationInProgress = false;
             this.initializeComponent();
           } else {
             console.error(
-              "[Tarot Card Reader] - DOM refs still not available after delay"
+              "[Tarot Card Reader] - DOM refs still not available after delay, proceeding anyway"
             );
+            // Force hide the loading indicator and continue without refs
+            this.isLoading = false;
             this.initializationInProgress = false;
           }
-        }, 200);
+        }, 500); // Increased delay to allow DOM to render
 
         return;
       }
@@ -1002,6 +1030,8 @@ export default {
           "[Tarot Card Reader] - Deck creation failed during initialization"
         );
         this.initializationInProgress = false;
+        // Ensure loading state is cleared even on failure
+        this.isLoading = false;
       }
     },
 
@@ -1056,16 +1086,6 @@ export default {
       playerHandElement.innerHTML = "";
       this.deckCards = [];
 
-      const loadingMessage = document.createElement("div");
-      loadingMessage.textContent = "Loading Tarot Cards...";
-      loadingMessage.style.color = "var(--light-accent)";
-      loadingMessage.style.fontSize = "1.5rem";
-      loadingMessage.style.position = "absolute";
-      loadingMessage.style.top = "50%";
-      loadingMessage.style.left = "50%";
-      loadingMessage.style.transform = "translate(-50%, -50%)";
-      this.$refs.gameArea.appendChild(loadingMessage);
-
       try {
         const tarotCards = await this.fetchTarotCards();
 
@@ -1114,8 +1134,6 @@ export default {
           this.deckCards.push(card);
         }
 
-        loadingMessage.remove();
-
         gsap.set(this.deckCards, {
           x: (i) => Math.random() * 0.5 - 0.25,
           y: (i) => Math.random() * 0.5 - 0.25,
@@ -1130,16 +1148,17 @@ export default {
         // Add the shuffle overlay to the deck
         this.createDeckOverlay();
 
+        // Hide loading indicator
+        this.isLoading = false;
+
         this.incrementVersion(
           `Deck created with ${this.deckCards.length} cards`
         );
         return true;
       } catch (error) {
         console.error("Error creating tarot deck:", error);
-        if (loadingMessage.parentNode === this.$refs.gameArea) {
-          loadingMessage.textContent = "Error loading cards. Please refresh.";
-          loadingMessage.style.color = "red";
-        }
+        // Even on error, we should hide the loading indicator and show an error state
+        this.isLoading = false;
         this.incrementVersion("Deck creation failed");
         return false;
       }
@@ -3070,5 +3089,64 @@ export default {
   padding: 5px;
   text-align: center;
   width: 100%;
+}
+
+.skeleton-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--background-color, #38074a);
+  border-radius: 10px;
+  width: 100%;
+  min-height: 450px;
+}
+
+.skeleton-deck {
+  width: var(--card-width, 120px);
+  height: var(--card-height, 168px);
+  background: linear-gradient(90deg, #3a0950 25%, #4c0a68 50%, #3a0950 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  margin-bottom: 40px;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+.skeleton-placeholders {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 20px;
+  width: 90%;
+  margin-bottom: 40px;
+}
+
+.skeleton-card {
+  width: var(--card-width, 120px);
+  height: var(--card-height, 168px);
+  background: linear-gradient(90deg, #3a0950 25%, #4c0a68 50%, #3a0950 75%);
+  background-size: 200% 100%;
+  border-radius: 8px;
+  animation: skeleton-loading 1.5s infinite;
+  animation-delay: calc(var(--i) * 0.2s);
+}
+
+.skeleton-button {
+  width: 180px;
+  height: 40px;
+  background: linear-gradient(90deg, #3a0950 25%, #4c0a68 50%, #3a0950 75%);
+  background-size: 200% 100%;
+  border-radius: 5px;
+  animation: skeleton-loading 1.5s infinite;
+}
+
+@keyframes skeleton-loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
 }
 </style>
