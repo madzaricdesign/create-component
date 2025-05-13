@@ -150,6 +150,22 @@ export default {
         en: "The number of tarot cards that will be revealed (1-9)",
       },
     },
+    cardPattern: {
+      label: { en: "Pattern" },
+      type: "TextSelect",
+      section: "Cards",
+      bindable: true,
+      defaultValue: "default",
+      options: {
+        options: [
+          { value: "default", label: "Default" },
+          { value: "relationship", label: "Relationship" },
+        ],
+      },
+      description: {
+        en: "Choose how the placeholders/cards are arranged when multiple cards are dealt.",
+      },
+    },
     buttonText: {
       label: {
         en: "Button Text",

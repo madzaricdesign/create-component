@@ -138,6 +138,7 @@ export default {
       initializationInProgress: false,
       mountCount: 0,
       resizeTimeout: null,
+      lastDeckClickTime: null,
     };
   },
   computed: {
@@ -361,6 +362,19 @@ export default {
         // No per-frame logging or verification – keeps the editor fast
       },
       deep: true,
+    },
+    "content.cardPattern": {
+      handler(newValue) {
+        if (this.isAnimating) return;
+
+        console.log(
+          `[Tarot Card Reader] v${this.version} - Card pattern changed in editor to ${newValue}`
+        );
+
+        // Just refresh placeholders if no cards are displayed yet
+        this.updatePlaceholderCards();
+      },
+      immediate: true,
     },
   },
   mounted() {
@@ -1113,6 +1127,9 @@ export default {
           card.style.setProperty("--index", index);
         });
 
+        // Add the shuffle overlay to the deck
+        this.createDeckOverlay();
+
         this.incrementVersion(
           `Deck created with ${this.deckCards.length} cards`
         );
@@ -1126,6 +1143,36 @@ export default {
         this.incrementVersion("Deck creation failed");
         return false;
       }
+    },
+
+    // Create clickable overlay for the deck
+    createDeckOverlay() {
+      if (!this.$refs.deckElement) return;
+
+      // Remove any existing overlay first
+      const existingOverlay =
+        this.$refs.deckElement.querySelector(".deck-overlay");
+      if (existingOverlay) {
+        existingOverlay.remove();
+      }
+
+      // Only create overlay if not animating
+      if (this.isAnimating) return;
+
+      const deckOverlay = document.createElement("div");
+      deckOverlay.className = "deck-overlay";
+
+      const overlayText = document.createElement("span");
+      overlayText.textContent = "Click to shuffle";
+      deckOverlay.appendChild(overlayText);
+
+      // Add click event listener
+      deckOverlay.addEventListener("click", (event) => {
+        this.shuffleFromDeck(event);
+      });
+
+      // Add to deck
+      this.$refs.deckElement.appendChild(deckOverlay);
     },
 
     createFallbackCards() {
@@ -1246,14 +1293,25 @@ export default {
       this.incrementVersion(
         `Updating placeholders for ${this.cardsToDisplay} cards`
       );
+
       if (!this.$refs.playerHandElement) {
         console.warn("Player hand element not found");
         return;
       }
 
-      const playerHandElement = this.$refs.playerHandElement;
       const numCards = this.cardsToDisplay;
 
+      // Detect selected pattern from content
+      const selectedPattern = this.content.cardPattern || "default";
+
+      // If the relationship pattern is selected and we have 7 cards, use the custom layout
+      if (selectedPattern === "relationship" && numCards === 7) {
+        this.createRelationshipPlaceholders(numCards);
+        return;
+      }
+
+      // Fallback to default flex placeholders
+      const playerHandElement = this.$refs.playerHandElement;
       playerHandElement.innerHTML = "";
       playerHandElement.style.bottom = "50px";
 
@@ -1346,6 +1404,13 @@ export default {
         }
 
         if (this.isAnimating || this.deckCards.length < 1) return;
+
+        // Remove the deck overlay before animation starts
+        const existingOverlay =
+          this.$refs.deckElement.querySelector(".deck-overlay");
+        if (existingOverlay) {
+          existingOverlay.remove();
+        }
 
         // We'll only emit the cardsDealt event AFTER the cards are actually dealt
         // No emission here to avoid duplicate triggers
@@ -1958,6 +2023,14 @@ export default {
     createPlaceholders(numCards) {
       if (!this.$refs.playerHandElement) return;
 
+      // Detect selected pattern
+      const selectedPattern = this.content.cardPattern || "default";
+
+      if (selectedPattern === "relationship" && numCards === 7) {
+        this.createRelationshipPlaceholders(numCards);
+        return;
+      }
+
       const playerHandElement = this.$refs.playerHandElement;
       playerHandElement.innerHTML = "";
 
@@ -2022,6 +2095,9 @@ export default {
 
               // FINAL ANIMATION COMPLETION - at this point cards are fully dealt and visible
               console.log("[Tarot Card Reader] ANIMATION SEQUENCE COMPLETE");
+
+              // Recreate the deck overlay now that animation is complete
+              this.createDeckOverlay();
 
               // We no longer emit the event here to avoid duplicate triggers.
               // The event is already emitted once in the dealCards method.
@@ -2507,6 +2583,82 @@ export default {
         );
       }
     },
+
+    // Custom placeholder layout for the "Relationship" pattern (7-card spread)
+    createRelationshipPlaceholders(numCards) {
+      if (!this.$refs.playerHandElement) return;
+
+      const playerHandElement = this.$refs.playerHandElement;
+      playerHandElement.innerHTML = "";
+
+      // Create a container with grid layout
+      const placeholdersContainer = document.createElement("div");
+      placeholdersContainer.style.display = "grid";
+      placeholdersContainer.style.gridTemplateColumns = "1fr 1fr 1fr";
+      placeholdersContainer.style.gridTemplateRows = "1fr 1fr 1fr";
+      placeholdersContainer.style.gap = "30px 10px";
+      placeholdersContainer.style.padding = "20px";
+      playerHandElement.appendChild(placeholdersContainer);
+
+      // Card positions in the grid based on the screenshot pattern
+      // The positions are defined as [row, column, card index]
+      // Where card index matches the dealing order (0-based)
+      const gridPositions = [
+        [1, 1, 0], // Card 1 (center - middle row, middle column)
+        [0, 2, 1], // Card 2 (top-right corner - top row, right column)
+        [1, 2, 2], // Card 3 (middle right - middle row, right column)
+        [2, 2, 3], // Card 4 (bottom-right corner - bottom row, right column)
+        [2, 0, 4], // Card 5 (bottom-left corner - bottom row, left column)
+        [1, 0, 5], // Card 6 (middle left - middle row, left column)
+        [0, 0, 6], // Card 7 (top-left corner - top row, left column)
+      ];
+
+      // Create placeholders and place them in the grid
+      for (let i = 0; i < numCards && i < gridPositions.length; i++) {
+        const [row, col, cardIndex] = gridPositions[i];
+
+        // Create the placeholder
+        const placeholder = document.createElement("div");
+        placeholder.classList.add("rec-card", "card-placeholder");
+        placeholder.style.margin = "0";
+
+        // Set grid position
+        placeholder.style.gridRow = row + 1; // Grid rows are 1-based
+        placeholder.style.gridColumn = col + 1; // Grid columns are 1-based
+
+        // Set data attribute for identification (optional)
+        placeholder.dataset.cardIndex = cardIndex;
+
+        // Add to the container
+        placeholdersContainer.appendChild(placeholder);
+      }
+
+      // Ensure the hand area is tall enough
+      this.updateHandAreaHeight(numCards);
+
+      console.log(
+        `[Tarot Card Reader] v${this.version} - Created relationship pattern placeholders with grid layout`
+      );
+    },
+
+    // Method to handle clicking on the deck to shuffle
+    shuffleFromDeck(event) {
+      // Call the existing shuffle method
+      this.shuffleAndDeal();
+
+      // Track the click for double-click handling
+      if (!this.lastDeckClickTime) {
+        this.lastDeckClickTime = new Date().getTime();
+      } else {
+        const currentTime = new Date().getTime();
+        // Check if it's a double click (within 300ms)
+        if (currentTime - this.lastDeckClickTime < 300) {
+          // Handle double-click if needed
+          console.log("[Tarot Card Reader] Double-click detected on deck");
+        }
+        this.lastDeckClickTime = currentTime;
+      }
+    },
   },
 };
 </script>
@@ -2887,5 +3039,36 @@ export default {
 .card-container .card-face {
   flex: 1;
   min-height: 0;
+}
+
+.deck-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 105%;
+  height: 107%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  cursor: pointer;
+  z-index: 100;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  font-size: min(14px, 3vw);
+  font-weight: bold;
+  box-sizing: border-box;
+}
+
+.deck-overlay:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.deck-overlay span {
+  padding: 5px;
+  text-align: center;
+  width: 100%;
 }
 </style>
