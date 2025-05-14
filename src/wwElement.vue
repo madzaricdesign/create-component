@@ -158,6 +158,8 @@ export default {
       resizeTimeout: null,
       lastDeckClickTime: null,
       isLoading: true,
+      cachedTarotCards: null, // Cache for tarot card data from API
+      cachedImageUrls: {}, // Cache for image URLs by media ID
     };
   },
   computed: {
@@ -911,6 +913,14 @@ export default {
     async fetchCardImage(mediaId) {
       if (!mediaId) return null;
 
+      // Check if we already have this image URL cached
+      if (this.cachedImageUrls[mediaId]) {
+        console.log(
+          `[Tarot Card Reader] Using cached image URL for media ID ${mediaId}`
+        );
+        return this.cachedImageUrls[mediaId];
+      }
+
       try {
         const apiUrl =
           this.content.apiUrl ||
@@ -935,7 +945,17 @@ export default {
 
         try {
           const media = JSON.parse(responseText);
-          return media.source_url || null;
+          const imageUrl = media.source_url || null;
+
+          // Cache the URL for future use
+          if (imageUrl) {
+            this.cachedImageUrls[mediaId] = imageUrl;
+            console.log(
+              `[Tarot Card Reader] Cached image URL for media ID ${mediaId}`
+            );
+          }
+
+          return imageUrl;
         } catch (parseError) {
           console.error(
             `[Tarot Card Reader] v${this.version} - Failed to parse image response as JSON:`,
@@ -1087,7 +1107,20 @@ export default {
       this.deckCards = [];
 
       try {
-        const tarotCards = await this.fetchTarotCards();
+        // Use cached cards if available to avoid unnecessary API calls
+        let tarotCards;
+        if (this.cachedTarotCards && this.cachedTarotCards.length > 0) {
+          console.log("[Tarot Card Reader] Using cached card data");
+          tarotCards = [...this.cachedTarotCards]; // Use a copy to avoid modifying cache
+        } else {
+          // Fetch new data if not cached
+          tarotCards = await this.fetchTarotCards();
+          // Cache the data for future use
+          this.cachedTarotCards = [...tarotCards];
+          console.log(
+            `[Tarot Card Reader] Cached ${tarotCards.length} cards from API`
+          );
+        }
 
         if (tarotCards.length === 0) {
           throw new Error("No tarot cards were loaded");
@@ -1109,20 +1142,42 @@ export default {
 
           if (tarotCard.imageUrl) {
             card.dataset.imageUrl = tarotCard.imageUrl;
+            // Ensure the image URL is cached for later use
+            if (!this.cachedTarotCards[i].imageUrl) {
+              this.cachedTarotCards[i].imageUrl = tarotCard.imageUrl;
+            }
             console.log(
               `Card ${tarotCard.title} has image: ${tarotCard.imageUrl}`
             );
           } else if (tarotCard.featuredMediaId) {
-            const imageUrl = await this.fetchCardImage(
-              tarotCard.featuredMediaId
-            );
-            if (imageUrl) {
-              card.dataset.imageUrl = imageUrl;
+            // Check if we already have this image URL cached
+            if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
+              card.dataset.imageUrl =
+                this.cachedImageUrls[tarotCard.featuredMediaId];
               console.log(
-                `Card ${tarotCard.title} fetched image from media: ${imageUrl}`
+                `Card ${tarotCard.title} using cached image URL for media: ${tarotCard.featuredMediaId}`
               );
+              // Update the cached card data too
+              if (!this.cachedTarotCards[i].imageUrl) {
+                this.cachedTarotCards[i].imageUrl =
+                  this.cachedImageUrls[tarotCard.featuredMediaId];
+              }
             } else {
-              console.warn(`Card ${tarotCard.title} has no image URL`);
+              const imageUrl = await this.fetchCardImage(
+                tarotCard.featuredMediaId
+              );
+              if (imageUrl) {
+                card.dataset.imageUrl = imageUrl;
+                // Cache the image URL for the card
+                if (!this.cachedTarotCards[i].imageUrl) {
+                  this.cachedTarotCards[i].imageUrl = imageUrl;
+                }
+                console.log(
+                  `Card ${tarotCard.title} fetched image from media: ${imageUrl}`
+                );
+              } else {
+                console.warn(`Card ${tarotCard.title} has no image URL`);
+              }
             }
           } else {
             console.warn(`Card ${tarotCard.title} has no image URL`);
@@ -1432,7 +1487,13 @@ export default {
           return;
         }
 
-        if (this.isAnimating || this.deckCards.length < 1) return;
+        // Don't proceed if we're already animating
+        if (this.isAnimating) return;
+
+        // We need initialization to complete first time we run
+        if (!this.hasInitialized && this.deckCards.length < 1) return;
+
+        console.log("[Tarot Card Reader] Starting shuffle and deal sequence");
 
         // Remove the deck overlay before animation starts
         const existingOverlay =
@@ -1441,17 +1502,11 @@ export default {
           existingOverlay.remove();
         }
 
-        // We'll only emit the cardsDealt event AFTER the cards are actually dealt
-        // No emission here to avoid duplicate triggers
-        console.log(
-          "[Tarot Card Reader] User clicked Shuffle button - Will emit event AFTER cards are dealt"
-        );
-
         // Reset dealt cards array when shuffling and emit cleared event
         if (this.dealtCards.length > 0) {
           this.dealtCards = [];
 
-          // Still emit the cardsCleared event
+          // Emit the cardsCleared event
           this.$emit("trigger-event", {
             name: "cardsCleared",
             payload: {},
@@ -1468,6 +1523,20 @@ export default {
         shuffleDealButton.classList.add("shuffling");
         const deckElement = this.$refs.deckElement;
         const gameArea = this.$refs.gameArea;
+
+        // IMPORTANT: Always reset the deck first
+        console.log("[Tarot Card Reader] Resetting deck before shuffle");
+        const deckReset = this.resetDeck();
+
+        if (!deckReset) {
+          console.error(
+            "[Tarot Card Reader] Failed to reset deck, aborting shuffle"
+          );
+          this.isAnimating = false;
+          shuffleDealButton.disabled = false;
+          shuffleDealButton.classList.remove("shuffling");
+          return;
+        }
 
         const animationTimeout = setTimeout(() => {
           if (this.isAnimating) {
@@ -1491,7 +1560,10 @@ export default {
 
         this.updateCardDimensions();
 
+        // Reset the player hand area completely
         this.$refs.playerHandElement.innerHTML = "";
+
+        // Create new placeholders
         this.createPlaceholders(this.cardsToDisplay);
 
         const gameAreaRect = gameArea.getBoundingClientRect();
@@ -1705,16 +1777,89 @@ export default {
         );
 
         const playerHandElement = this.$refs.playerHandElement;
-        const placeholderContainer = playerHandElement.querySelector("div");
-        if (!placeholderContainer) return;
 
-        const placeholders =
+        // Ensure we have a container before proceeding
+        let placeholderContainer = playerHandElement.querySelector("div");
+
+        // If no container is found, try to create placeholders again
+        if (!placeholderContainer) {
+          console.warn(
+            "[Tarot Card Reader] No placeholder container found, recreating placeholders"
+          );
+
+          // First make sure the player hand is empty
+          playerHandElement.innerHTML = "";
+
+          // Try to create placeholders again
+          this.createPlaceholders(this.cardsToDisplay);
+
+          // After creating, check again
+          placeholderContainer = playerHandElement.querySelector("div");
+
+          if (!placeholderContainer) {
+            console.error(
+              "[Tarot Card Reader] Failed to create placeholder container, aborting deal"
+            );
+            this.isAnimating = false;
+            if (this.$refs.shuffleDealButton) {
+              this.$refs.shuffleDealButton.disabled = false;
+              this.$refs.shuffleDealButton.classList.remove("shuffling");
+            }
+            return;
+          }
+        }
+
+        // Now find the placeholders
+        let placeholders =
           placeholderContainer.querySelectorAll(".card-placeholder");
 
-        // Make sure we have enough cards and placeholders
+        // Make sure we have enough placeholders
         if (placeholders.length === 0) {
-          console.error("No placeholders found for dealing cards");
-          return;
+          console.warn(
+            "[Tarot Card Reader] No placeholders found, attempting to recreate them"
+          );
+
+          // Check if we're using relationship pattern
+          const isRelationship =
+            this.content.cardPattern === "relationship" &&
+            this.cardsToDisplay === 7;
+
+          if (isRelationship) {
+            this.createRelationshipPlaceholders(this.cardsToDisplay);
+          } else {
+            // For standard pattern
+            playerHandElement.innerHTML = "";
+            this.createPlaceholders(this.cardsToDisplay);
+          }
+
+          // Try again to find placeholders
+          placeholderContainer = playerHandElement.querySelector("div");
+          if (!placeholderContainer) {
+            console.error(
+              "[Tarot Card Reader] Still no placeholder container after recreating, aborting deal"
+            );
+            this.isAnimating = false;
+            if (this.$refs.shuffleDealButton) {
+              this.$refs.shuffleDealButton.disabled = false;
+              this.$refs.shuffleDealButton.classList.remove("shuffling");
+            }
+            return;
+          }
+
+          placeholders =
+            placeholderContainer.querySelectorAll(".card-placeholder");
+
+          if (placeholders.length === 0) {
+            console.error(
+              "[Tarot Card Reader] Still no placeholders found after recreating, aborting deal"
+            );
+            this.isAnimating = false;
+            if (this.$refs.shuffleDealButton) {
+              this.$refs.shuffleDealButton.disabled = false;
+              this.$refs.shuffleDealButton.classList.remove("shuffling");
+            }
+            return;
+          }
         }
 
         const cardsToDisplayCount = Math.min(
@@ -1723,7 +1868,12 @@ export default {
         );
 
         if (cardsToDisplayCount === 0) {
-          console.error("No cards to deal");
+          console.error("[Tarot Card Reader] No cards to deal");
+          this.isAnimating = false;
+          if (this.$refs.shuffleDealButton) {
+            this.$refs.shuffleDealButton.disabled = false;
+            this.$refs.shuffleDealButton.classList.remove("shuffling");
+          }
           return;
         }
 
@@ -2675,7 +2825,9 @@ export default {
 
     // Method to handle clicking on the deck to shuffle
     shuffleFromDeck(event) {
-      // Call the existing shuffle method
+      console.log("[Tarot Card Reader] Shuffle triggered from deck overlay");
+
+      // Call the main shuffle method - it will reset the deck
       this.shuffleAndDeal();
 
       // Track the click for double-click handling
@@ -2689,6 +2841,88 @@ export default {
           console.log("[Tarot Card Reader] Double-click detected on deck");
         }
         this.lastDeckClickTime = currentTime;
+      }
+    },
+
+    // Add a method to reset the deck completely
+    resetDeck() {
+      console.log("[Tarot Card Reader] Resetting deck completely");
+
+      if (!this.$refs.deckElement) {
+        console.warn("[Tarot Card Reader] No deck element available for reset");
+        return false;
+      }
+
+      // Clear the deck element
+      this.$refs.deckElement.innerHTML = "";
+
+      // Clear the deck cards array - IMPORTANT: save a ref to any existing cards first
+      const existingCards = [...this.deckCards];
+      this.deckCards = [];
+
+      try {
+        // Use cached cards if available to avoid unnecessary API calls
+        if (!this.cachedTarotCards || this.cachedTarotCards.length === 0) {
+          console.log(
+            "[Tarot Card Reader] No cached cards available, fetching from API"
+          );
+          // Only make API call if we have no cached data
+          return this.createDeck();
+        }
+
+        const deckElement = this.$refs.deckElement;
+
+        // Create all cards from cached data
+        const cardCount = Math.min(52, this.cachedTarotCards.length);
+        for (let i = 0; i < cardCount; i++) {
+          const tarotCard = this.cachedTarotCards[i];
+          const card = document.createElement("div");
+          card.classList.add("card", "card-back");
+
+          // Set exact dimensions to match CSS variables
+          card.style.width = "var(--card-width)";
+          card.style.height = "var(--card-height)";
+
+          card.dataset.cardId = i;
+          card.dataset.tarotId = tarotCard.id;
+          card.dataset.cardNumber = tarotCard.cardNumber;
+          card.dataset.title = tarotCard.title;
+
+          // Use cached image URL if available
+          if (tarotCard.imageUrl) {
+            card.dataset.imageUrl = tarotCard.imageUrl;
+          } else if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
+            card.dataset.imageUrl =
+              this.cachedImageUrls[tarotCard.featuredMediaId];
+          }
+
+          card.innerHTML = `<span style="color: var(--main-dark)">${tarotCard.title}</span>`;
+          deckElement.appendChild(card);
+          this.deckCards.push(card);
+        }
+
+        // Add random slight offsets to make deck look natural
+        gsap.set(this.deckCards, {
+          x: (i) => Math.random() * 0.5 - 0.25,
+          y: (i) => Math.random() * 0.5 - 0.25,
+          rotation: (i) => Math.random() * 0.8 - 0.4,
+          zIndex: (i) => i,
+        });
+
+        this.deckCards.forEach((card, index) => {
+          card.style.setProperty("--index", index);
+        });
+
+        // Add the shuffle overlay to the deck
+        this.createDeckOverlay();
+
+        console.log(
+          `[Tarot Card Reader] Deck reset complete with ${this.deckCards.length} cards`
+        );
+        return true;
+      } catch (error) {
+        console.error("[Tarot Card Reader] Error resetting deck:", error);
+        return false;
       }
     },
   },
