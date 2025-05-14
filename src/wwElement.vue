@@ -1361,6 +1361,16 @@ export default {
     updateHandAreaHeight(numCards) {
       if (!this.$refs.playerHandElement || !this.$refs.gameArea) return;
 
+      // Check if using relationship pattern with 7 cards
+      // This is a safety check in case this method is called when the relationship pattern is active
+      const isRelationshipPattern =
+        this.content.cardPattern === "relationship" && numCards === 7;
+
+      // Skip setting height for relationship pattern
+      if (isRelationshipPattern) {
+        return;
+      }
+
       const playerHandElement = this.$refs.playerHandElement;
       const gameArea = this.$refs.gameArea;
       const gameAreaHeight = gameArea.clientHeight;
@@ -2610,6 +2620,12 @@ export default {
       const playerHandElement = this.$refs.playerHandElement;
       playerHandElement.innerHTML = "";
 
+      // For relationship pattern, use auto height instead of fixed height
+      playerHandElement.style.minHeight = null;
+      playerHandElement.style.height = "auto";
+      playerHandElement.style.paddingBottom = "50px"; // Add extra padding at the bottom
+      playerHandElement.style.bottom = "0"; // Set bottom to 0 instead of the default 50px
+
       // Create a container with grid layout
       const placeholdersContainer = document.createElement("div");
       placeholdersContainer.style.display = "grid";
@@ -2652,11 +2668,8 @@ export default {
         placeholdersContainer.appendChild(placeholder);
       }
 
-      // Ensure the hand area is tall enough
-      this.updateHandAreaHeight(numCards);
-
       console.log(
-        `[Tarot Card Reader] v${this.version} - Created relationship pattern placeholders with grid layout`
+        `[Tarot Card Reader] v${this.version} - Created relationship pattern placeholders with grid layout and auto height`
       );
     },
 
