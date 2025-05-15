@@ -1776,6 +1776,13 @@ export default {
           `[Tarot Card Reader] dealCards: Starting the deal process for ${this.cardsToDisplay} cards`
         );
 
+        // Debug log the card flipping settings
+        console.log("[Tarot Card Reader] Card flipping settings:", {
+          enabled: !!this.content.enableCardFlipping,
+          probability: this.content.cardFlipProbability || 20,
+          maxFlipped: this.content.maxFlippedCards || 1,
+        });
+
         const playerHandElement = this.$refs.playerHandElement;
 
         // Ensure we have a container before proceeding
@@ -1883,6 +1890,55 @@ export default {
         // Create array to hold the card data
         const dealtCardsData = [];
 
+        // Calculate which cards should be flipped (if enabled)
+        const flippedCardsIndices = [];
+
+        // Only proceed with card flipping if explicitly enabled
+        if (this.content.enableCardFlipping === true) {
+          const probability = parseInt(this.content.cardFlipProbability || 20); // Default 20%
+          const maxFlipped = parseInt(this.content.maxFlippedCards || 1); // Default max 1 card
+
+          console.log(
+            `[Tarot Card Reader] Card flipping ENABLED - Probability: ${probability}%, Max flipped: ${maxFlipped}`
+          );
+
+          // Simplify the approach - create an array of indices and shuffle it
+          const allIndices = Array.from(
+            { length: cardsToDisplayCount },
+            (_, i) => i
+          );
+          const shuffledIndices = this.shuffleArray([...allIndices]);
+
+          // Go through each card and decide based on probability
+          let flippedCount = 0;
+          for (let index of shuffledIndices) {
+            // Generate a random number between 0-100
+            const randomValue = Math.floor(Math.random() * 100);
+            console.log(
+              `[Tarot Card Reader] Card ${index} random value: ${randomValue}, probability: ${probability}`
+            );
+
+            // If random value is less than probability, flip the card
+            if (randomValue < probability) {
+              flippedCardsIndices.push(index);
+              flippedCount++;
+
+              // Stop if we've reached the maximum number of flipped cards
+              if (flippedCount >= maxFlipped) {
+                break;
+              }
+            }
+          }
+
+          console.log(
+            `[Tarot Card Reader] Selected ${
+              flippedCardsIndices.length
+            } cards to be flipped: ${flippedCardsIndices.join(", ")}`
+          );
+        } else {
+          console.log("[Tarot Card Reader] Card flipping is DISABLED");
+        }
+
         this.updateCardDimensions();
 
         const deckElement = this.$refs.deckElement;
@@ -1915,12 +1971,12 @@ export default {
           try {
             if (i >= placeholders.length) return; // Skip if no placeholder available
 
-            console.log(`[Tarot Card Reader] Card ${i} data:`, {
-              id: card.dataset.tarotId,
-              title: card.dataset.title,
-              cardNumber: card.dataset.cardNumber,
-              imageUrl: card.dataset.imageUrl || null,
-            });
+            // Determine if this card should be flipped
+            const isCardFlipped = flippedCardsIndices.includes(i);
+
+            console.log(
+              `[Tarot Card Reader] Card ${i} - Will be flipped: ${isCardFlipped}`
+            );
 
             // Extract and store the card data
             dealtCardsData.push({
@@ -1929,6 +1985,7 @@ export default {
               cardNumber: card.dataset.cardNumber,
               imageUrl: card.dataset.imageUrl || null,
               index: i,
+              cardFlipped: isCardFlipped,
             });
 
             // Get first bounds before any DOM changes
@@ -2070,6 +2127,20 @@ export default {
                     }
 
                     gsap.set(card, { rotationY: 0 });
+
+                    // If the card should be flipped upside down
+                    if (isCardFlipped) {
+                      // Add a class to identify flipped cards
+                      card.classList.add("card-upside-down");
+
+                      // Use direct DOM manipulation to ensure rotation is applied
+                      card.style.transform = "rotate(180deg)";
+                      card.style.transformOrigin = "center center";
+
+                      console.log(
+                        `[Tarot Card Reader] Card ${i} flipped upside down - applied direct style transform`
+                      );
+                    }
                   } catch (err) {
                     console.error(
                       "[Tarot Card Reader] - Card flip error:",
@@ -2117,6 +2188,7 @@ export default {
               cardNumber: card.cardNumber,
               imageUrl: card.imageUrl,
               index: card.index,
+              cardFlipped: card.cardFlipped,
             }));
 
             // Update our internal state
@@ -3394,6 +3466,36 @@ export default {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+.card-upside-down {
+  /* Flip the card upside down */
+  transform: rotate(180deg) !important;
+  transform-origin: center !important;
+  box-shadow: 0 0 10px 2px rgba(255, 0, 0, 0.3) !important;
+}
+
+.card-upside-down::after {
+  content: "REVERSED";
+  position: absolute;
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%) rotate(180deg); /* Counter-rotate text to make it readable */
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.9);
+  background-color: rgba(255, 0, 0, 0.6);
+  padding: 2px 5px;
+  border-radius: 3px;
+  z-index: 25;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 768px) {
+  .card-upside-down::after {
+    font-size: 8px;
+    padding: 1px 3px;
   }
 }
 </style>

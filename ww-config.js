@@ -166,6 +166,48 @@ export default {
         en: "Choose how the placeholders/cards are arranged when multiple cards are dealt.",
       },
     },
+    enableCardFlipping: {
+      label: { en: "Enable Upside Down Cards" },
+      type: "OnOff",
+      section: "Cards",
+      bindable: true,
+      defaultValue: false,
+      description: {
+        en: "Allow cards to appear upside down (reversed) when dealt.",
+      },
+    },
+    cardFlipProbability: {
+      label: { en: "Flip Probability (%)" },
+      type: "Number",
+      section: "Cards",
+      bindable: true,
+      defaultValue: 20,
+      options: {
+        min: 0,
+        max: 100,
+        step: 5,
+      },
+      hidden: (content) => !content.enableCardFlipping,
+      description: {
+        en: "Probability of any card being flipped upside down (0-100%).",
+      },
+    },
+    maxFlippedCards: {
+      label: { en: "Max Flipped Cards" },
+      type: "Number",
+      section: "Cards",
+      bindable: true,
+      defaultValue: 1,
+      options: {
+        min: 1,
+        max: 9,
+        step: 1,
+      },
+      hidden: (content) => !content.enableCardFlipping,
+      description: {
+        en: "Maximum number of cards that can be flipped in a single deal.",
+      },
+    },
     buttonText: {
       label: {
         en: "Button Text",
@@ -191,6 +233,7 @@ export default {
             cardNumber: "",
             imageUrl: "",
             index: 0,
+            cardFlipped: false,
           },
           options: {
             title: {
@@ -227,6 +270,13 @@ export default {
               },
               type: "Number",
               defaultValue: 0,
+            },
+            cardFlipped: {
+              label: {
+                en: "Card Flipped",
+              },
+              type: "Boolean",
+              defaultValue: false,
             },
           },
         },
