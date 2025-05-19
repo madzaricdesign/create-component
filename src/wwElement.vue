@@ -932,7 +932,14 @@ export default {
           `[Tarot Card Reader] v${this.version} - Fetching image from: ${mediaUrl}`
         );
 
-        const response = await fetch(mediaUrl);
+        const response = await fetch(mediaUrl, {
+          headers: {
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          mode: "cors",
+          credentials: "omit",
+        });
 
         if (!response.ok) {
           console.error(
@@ -941,27 +948,60 @@ export default {
           return null;
         }
 
-        const responseText = await response.text();
+        const media = await response.json();
+        console.log(
+          `[Tarot Card Reader] Media response for ID ${mediaId}:`,
+          media
+        );
 
-        try {
-          const media = JSON.parse(responseText);
-          const imageUrl = media.source_url || null;
+        // Try different possible paths for the image URL in the WordPress API response
+        let imageUrl = null;
 
-          // Cache the URL for future use
-          if (imageUrl) {
-            this.cachedImageUrls[mediaId] = imageUrl;
-            console.log(
-              `[Tarot Card Reader] Cached image URL for media ID ${mediaId}`
-            );
-          }
-
-          return imageUrl;
-        } catch (parseError) {
-          console.error(
-            `[Tarot Card Reader] v${this.version} - Failed to parse image response as JSON:`,
-            parseError
+        // Primary source: source_url field
+        if (media.source_url) {
+          imageUrl = media.source_url;
+          console.log(
+            `[Tarot Card Reader] Found image in source_url: ${imageUrl}`
           );
-          console.log("Response text:", responseText.substring(0, 200) + "...");
+        }
+        // Alternative: guid.rendered field
+        else if (media.guid && media.guid.rendered) {
+          imageUrl = media.guid.rendered;
+          console.log(
+            `[Tarot Card Reader] Found image in guid.rendered: ${imageUrl}`
+          );
+        }
+        // Alternative: media_details.sizes field (try to get the full size image)
+        else if (media.media_details && media.media_details.sizes) {
+          const sizes = media.media_details.sizes;
+          if (sizes.full && sizes.full.source_url) {
+            imageUrl = sizes.full.source_url;
+            console.log(
+              `[Tarot Card Reader] Found image in media_details.sizes.full: ${imageUrl}`
+            );
+          } else {
+            // If full size is not available, use the first available size
+            const sizeKeys = Object.keys(sizes);
+            if (sizeKeys.length > 0 && sizes[sizeKeys[0]].source_url) {
+              imageUrl = sizes[sizeKeys[0]].source_url;
+              console.log(
+                `[Tarot Card Reader] Found image in media_details.sizes.${sizeKeys[0]}: ${imageUrl}`
+              );
+            }
+          }
+        }
+
+        // Cache the URL for future use
+        if (imageUrl) {
+          this.cachedImageUrls[mediaId] = imageUrl;
+          console.log(
+            `[Tarot Card Reader] Cached image URL for media ID ${mediaId}: ${imageUrl}`
+          );
+          return imageUrl;
+        } else {
+          console.error(
+            `[Tarot Card Reader] No image URL found in media response for ID ${mediaId}`
+          );
           return null;
         }
       } catch (error) {
@@ -1140,47 +1180,87 @@ export default {
           card.dataset.cardNumber = tarotCard.cardNumber;
           card.dataset.title = tarotCard.title;
 
+          // Handle image URL assignment
           if (tarotCard.imageUrl) {
+            // Card already has an image URL from previous fetch
             card.dataset.imageUrl = tarotCard.imageUrl;
+
             // Ensure the image URL is cached for later use
             if (!this.cachedTarotCards[i].imageUrl) {
               this.cachedTarotCards[i].imageUrl = tarotCard.imageUrl;
             }
+
             console.log(
-              `Card ${tarotCard.title} has image: ${tarotCard.imageUrl}`
+              `Card ${tarotCard.title} has existing image: ${tarotCard.imageUrl}`
             );
           } else if (tarotCard.featuredMediaId) {
+            // Card has featured media ID but needs image URL
+
             // Check if we already have this image URL cached
             if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
-              card.dataset.imageUrl =
-                this.cachedImageUrls[tarotCard.featuredMediaId];
+              const cachedUrl = this.cachedImageUrls[tarotCard.featuredMediaId];
+              card.dataset.imageUrl = cachedUrl;
+
               console.log(
-                `Card ${tarotCard.title} using cached image URL for media: ${tarotCard.featuredMediaId}`
+                `Card ${tarotCard.title} using cached image URL for media ID: ${tarotCard.featuredMediaId}`
               );
+
               // Update the cached card data too
               if (!this.cachedTarotCards[i].imageUrl) {
-                this.cachedTarotCards[i].imageUrl =
-                  this.cachedImageUrls[tarotCard.featuredMediaId];
+                this.cachedTarotCards[i].imageUrl = cachedUrl;
               }
             } else {
+              // Need to fetch image URL from API
+              console.log(
+                `Fetching image for card ${tarotCard.title} with media ID: ${tarotCard.featuredMediaId}`
+              );
+
               const imageUrl = await this.fetchCardImage(
                 tarotCard.featuredMediaId
               );
+
               if (imageUrl) {
+                // Successfully fetched image URL
                 card.dataset.imageUrl = imageUrl;
+
                 // Cache the image URL for the card
                 if (!this.cachedTarotCards[i].imageUrl) {
                   this.cachedTarotCards[i].imageUrl = imageUrl;
                 }
+
                 console.log(
-                  `Card ${tarotCard.title} fetched image from media: ${imageUrl}`
+                  `Card ${tarotCard.title} fetched image from API: ${imageUrl}`
                 );
               } else {
-                console.warn(`Card ${tarotCard.title} has no image URL`);
+                // Failed to fetch image URL, use fallback
+                console.warn(
+                  `Card ${tarotCard.title} has no image URL from API, using fallback`
+                );
+
+                const fallbackUrl = `https://placehold.co/600x400/9e15bf/ffffff?text=${encodeURIComponent(
+                  tarotCard.title
+                )}`;
+                card.dataset.imageUrl = fallbackUrl;
+
+                if (!this.cachedTarotCards[i].imageUrl) {
+                  this.cachedTarotCards[i].imageUrl = fallbackUrl;
+                }
               }
             }
           } else {
-            console.warn(`Card ${tarotCard.title} has no image URL`);
+            // Card has no featured media ID, use fallback image
+            console.warn(
+              `Card ${tarotCard.title} has no featuredMediaId, using fallback`
+            );
+
+            const fallbackUrl = `https://placehold.co/600x400/9e15bf/ffffff?text=${encodeURIComponent(
+              tarotCard.title
+            )}`;
+            card.dataset.imageUrl = fallbackUrl;
+
+            if (!this.cachedTarotCards[i].imageUrl) {
+              this.cachedTarotCards[i].imageUrl = fallbackUrl;
+            }
           }
 
           card.innerHTML = `<span style="color: var(--main-dark)">${tarotCard.title}</span>`;
@@ -2066,12 +2146,42 @@ export default {
                     card.classList.add("card-face");
 
                     if (card.dataset.imageUrl) {
-                      card.style.backgroundImage = `url('${card.dataset.imageUrl}')`;
+                      // Get the image URL from the dataset
+                      const imageUrl = card.dataset.imageUrl;
+                      console.log(`Setting card face image: ${imageUrl}`);
+
+                      // Set the image as background with proper styling
+                      card.style.backgroundImage = `url('${imageUrl}')`;
                       card.style.backgroundSize = "cover";
                       card.style.backgroundPosition = "center";
                       card.style.backgroundRepeat = "no-repeat";
                       card.style.backgroundColor =
                         this.content.lightColor || "#f8f0fc";
+
+                      // Verify image loads correctly
+                      const tempImg = new Image();
+                      tempImg.onload = () => {
+                        console.log(
+                          `Card image loaded successfully: ${imageUrl}`
+                        );
+                      };
+                      tempImg.onerror = () => {
+                        console.error(`Failed to load card image: ${imageUrl}`);
+                        // Set a fallback background color on error
+                        card.style.backgroundColor = "#9e15bf";
+                        card.style.backgroundImage = "none";
+                        // Add text with card title as fallback
+                        const fallbackText = document.createElement("div");
+                        fallbackText.textContent =
+                          card.dataset.title || "Tarot Card";
+                        fallbackText.style.color = "#ffffff";
+                        fallbackText.style.textAlign = "center";
+                        fallbackText.style.padding = "10px";
+                        fallbackText.style.fontSize = "14px";
+                        fallbackText.style.fontWeight = "bold";
+                        card.appendChild(fallbackText);
+                      };
+                      tempImg.src = imageUrl;
 
                       // Ensure card stays within placeholder during resize
                       card.style.position = "absolute";
@@ -2081,8 +2191,24 @@ export default {
                       card.style.left = "0";
                       card.style.margin = "0";
                     } else {
+                      console.warn(
+                        `Card has no image URL, using fallback style`
+                      );
+                      // Fallback for cards without image URLs
                       card.style.backgroundColor =
                         this.content.lightColor || "#f8f0fc";
+                      card.style.backgroundImage = "none";
+
+                      // Add text with card title as fallback
+                      const fallbackText = document.createElement("div");
+                      fallbackText.textContent =
+                        card.dataset.title || "Tarot Card";
+                      fallbackText.style.color = "#333333";
+                      fallbackText.style.textAlign = "center";
+                      fallbackText.style.padding = "10px";
+                      fallbackText.style.fontSize = "14px";
+                      fallbackText.style.fontWeight = "bold";
+                      card.appendChild(fallbackText);
 
                       // Ensure card stays within placeholder during resize
                       card.style.position = "absolute";
@@ -2960,12 +3086,72 @@ export default {
           card.dataset.cardNumber = tarotCard.cardNumber;
           card.dataset.title = tarotCard.title;
 
-          // Use cached image URL if available
+          // Handle image URL assignment
           if (tarotCard.imageUrl) {
+            // Card already has an image URL from previous fetch
             card.dataset.imageUrl = tarotCard.imageUrl;
-          } else if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
-            card.dataset.imageUrl =
-              this.cachedImageUrls[tarotCard.featuredMediaId];
+            console.log(
+              `Reset: Card ${tarotCard.title} using cached image URL: ${tarotCard.imageUrl}`
+            );
+          } else if (tarotCard.featuredMediaId) {
+            // Check if we already have this image URL cached
+            if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
+              const cachedUrl = this.cachedImageUrls[tarotCard.featuredMediaId];
+              card.dataset.imageUrl = cachedUrl;
+              console.log(
+                `Reset: Card ${tarotCard.title} using cached image URL for media ID: ${tarotCard.featuredMediaId}`
+              );
+
+              // Update the cached card data for future reference
+              this.cachedTarotCards[i].imageUrl = cachedUrl;
+            } else {
+              // Need to fetch from API since we don't have the image URL cached
+              console.log(
+                `Reset: Fetching image for card ${tarotCard.title} with media ID: ${tarotCard.featuredMediaId}`
+              );
+
+              // We'll fetch this asynchronously to not block the reset
+              this.fetchCardImage(tarotCard.featuredMediaId)
+                .then((imageUrl) => {
+                  if (imageUrl) {
+                    card.dataset.imageUrl = imageUrl;
+                    this.cachedTarotCards[i].imageUrl = imageUrl;
+                    console.log(
+                      `Reset: Fetched image for card ${tarotCard.title}: ${imageUrl}`
+                    );
+                  } else {
+                    console.warn(
+                      `Reset: Failed to fetch image for card ${tarotCard.title}, using fallback`
+                    );
+                    const fallbackUrl = `https://placehold.co/600x400/9e15bf/ffffff?text=${encodeURIComponent(
+                      tarotCard.title
+                    )}`;
+                    card.dataset.imageUrl = fallbackUrl;
+                    this.cachedTarotCards[i].imageUrl = fallbackUrl;
+                  }
+                })
+                .catch((err) => {
+                  console.error(
+                    `Reset: Error fetching image for card ${tarotCard.title}:`,
+                    err
+                  );
+                  const fallbackUrl = `https://placehold.co/600x400/9e15bf/ffffff?text=${encodeURIComponent(
+                    tarotCard.title
+                  )}`;
+                  card.dataset.imageUrl = fallbackUrl;
+                  this.cachedTarotCards[i].imageUrl = fallbackUrl;
+                });
+            }
+          } else {
+            // No featuredMediaId, use fallback
+            console.warn(
+              `Reset: Card ${tarotCard.title} has no featuredMediaId, using fallback`
+            );
+            const fallbackUrl = `https://placehold.co/600x400/9e15bf/ffffff?text=${encodeURIComponent(
+              tarotCard.title
+            )}`;
+            card.dataset.imageUrl = fallbackUrl;
+            this.cachedTarotCards[i].imageUrl = fallbackUrl;
           }
 
           card.innerHTML = `<span style="color: var(--main-dark)">${tarotCard.title}</span>`;
