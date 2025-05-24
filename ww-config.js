@@ -120,17 +120,128 @@ export default {
         "https://b145kh3.myrdbx.io/wp-content/uploads/2025/02/tarot-karte-ziehen-online-179x300-1.jpg",
       section: "Images",
     },
-    apiUrl: {
-      label: {
-        en: "Tarot API URL",
-      },
-      type: "Text",
-      defaultValue:
-        "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80",
+    cardsData: {
+      label: { en: "Cards Data" },
+      type: "Array",
       section: "Data",
-      description: {
-        en: "API endpoint for tarot card data (fetches all cards in the deck)",
+      bindable: true,
+      defaultValue: [],
+      options: { item: { type: "Object", defaultValue: {} } },
+      /* wwEditor:start */ bindingValidation: {
+        type: "array",
+        tooltip:
+          "Bind to an array of tarot cards from your data source. Each card should have id, card_number, card_title, image, card_meaning, and card_description properties.",
       },
+      propertyHelp: {
+        tooltip: "Connect your tarot cards collection from Xano here",
+      },
+      /* wwEditor:end */ description: {
+        en: "Array of tarot cards from your data source (e.g., Xano)",
+      },
+    },
+    cardTitlePath: {
+      label: { en: "Card Title Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_title",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card titles. Format: string (e.g. "card_title" or "title")',
+      },
+      propertyHelp: {
+        tooltip: "Select which property from your cards to use as the title",
+      } /* wwEditor:end */,
+    },
+    cardNumberPath: {
+      label: { en: "Card Number Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_number",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card numbers. Format: string (e.g. "card_number" or "number")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the card number",
+      } /* wwEditor:end */,
+    },
+    cardImagePath: {
+      label: { en: "Card Image Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "image.url",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card images. Format: string (e.g. "image.url" or "imageUrl")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the image URL",
+      } /* wwEditor:end */,
+    },
+    cardMeaningPath: {
+      label: { en: "Card Meaning Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_meaning",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card meanings. Format: string (e.g. "card_meaning" or "meaning")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the card meaning",
+      } /* wwEditor:end */,
+    },
+    cardDescriptionPath: {
+      label: { en: "Card Description Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_description",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card descriptions. Format: string (e.g. "card_description" or "description")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the card description",
+      } /* wwEditor:end */,
     },
     defaultCardOption: {
       label: {
