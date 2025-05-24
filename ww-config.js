@@ -472,6 +472,7 @@ export default {
             cardFlipped: false,
             long_description: "",
             description_reversed: "",
+            card_description: "",
             card_meaning: [],
             card_meaning_reversed: [],
           },
@@ -528,6 +529,13 @@ export default {
             description_reversed: {
               label: {
                 en: "Reversed Description",
+              },
+              type: "Text",
+              defaultValue: "",
+            },
+            card_description: {
+              label: {
+                en: "Card Description",
               },
               type: "Text",
               defaultValue: "",

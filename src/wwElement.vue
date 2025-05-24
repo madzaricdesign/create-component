@@ -775,6 +775,7 @@ export default {
               cardNumber: card.card_number?.toString() || index.toString(),
               imageUrl: card.image?.url || null,
               cardDescription: card.card_description || "",
+              card_description: card.card_description || "",
               long_description: card.long_description || "",
               description_reversed: card.description_reversed || "",
               card_meaning: Array.isArray(card.card_meaning)
@@ -1037,6 +1038,7 @@ export default {
           card.dataset.tarotId = tarotCard.id;
           card.dataset.cardNumber = tarotCard.cardNumber;
           card.dataset.title = tarotCard.title;
+          card.dataset.cardDescription = tarotCard.cardDescription || "";
           card.dataset.longDescription = tarotCard.long_description || "";
           card.dataset.descriptionReversed =
             tarotCard.description_reversed || "";
@@ -1863,6 +1865,9 @@ export default {
               description_reversed:
                 this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
                   ?.description_reversed || "",
+              card_description:
+                this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
+                  ?.card_description || "",
               card_meaning:
                 this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
                   ?.card_meaning || [],
@@ -2109,6 +2114,7 @@ export default {
               cardFlipped: card.cardFlipped,
               long_description: card.long_description,
               description_reversed: card.description_reversed,
+              card_description: card.card_description,
               card_meaning: card.card_meaning,
               card_meaning_reversed: card.card_meaning_reversed,
             }));
