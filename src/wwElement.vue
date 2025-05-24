@@ -1331,7 +1331,7 @@ export default {
       placeholdersContainer.style.position = "absolute";
       placeholdersContainer.style.bottom = "0";
       placeholdersContainer.style.left = "0";
-      placeholdersContainer.style.gap = "15px";
+      placeholdersContainer.style.gap = "15px 5px";
       placeholdersContainer.style.paddingBottom = "10px";
 
       playerHandElement.appendChild(placeholdersContainer);
@@ -2195,7 +2195,7 @@ export default {
       placeholdersContainer.style.position = "absolute";
       placeholdersContainer.style.bottom = "0";
       placeholdersContainer.style.left = "0";
-      placeholdersContainer.style.gap = "15px";
+      placeholdersContainer.style.gap = "15px 5px";
       placeholdersContainer.style.paddingBottom = "10px";
 
       playerHandElement.appendChild(placeholdersContainer);
@@ -2994,6 +2994,18 @@ export default {
   align-content: flex-start;
   gap: 15px;
   padding-bottom: 20px; /* Reduced padding since titles are in flex containers now */
+}
+
+.player-hand-area > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: 100%;
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  gap: 15px 5px;
+  padding-bottom: 10px;
 }
 
 .rec-card {
