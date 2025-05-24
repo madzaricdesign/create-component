@@ -98,43 +98,28 @@ export default {
   // Explicitly expose functions for WeWeb actions
   wwFunctions: {
     getCards() {
-      console.log("[Tarot Card Reader] Action getCards called");
       return this.dealtCards ? [...this.dealtCards] : [];
     },
     clearCards() {
-      console.log("[Tarot Card Reader] Action clearCards called");
-
-      // Clear the local array
       this.dealtCards = [];
 
-      // CORRECT APPROACH: Create a copy of content, don't modify directly
-      // Add a delay to ensure WeWeb has time to process
       setTimeout(() => {
         this.$emit("update:content", {
-          ...this.content, // Keep all other properties
-          resultCards: [], // Update just resultCards with empty array
+          ...this.content,
+          resultCards: [],
         });
-
-        console.log(
-          "[Tarot Card Reader] Cleared resultCards binding with delay"
-        );
       }, 100);
 
-      // Emit the cards-cleared event for workflows with a delay
       setTimeout(() => {
         this.$emit("trigger-event", {
           name: "cardsCleared",
           payload: {},
         });
-        console.log(
-          "[Tarot Card Reader] Emitted cardsCleared event with delay"
-        );
-      }, 1000); // 1 second delay for workflow
+      }, 1000);
 
       return true;
     },
     getCardCount() {
-      console.log("[Tarot Card Reader] Action getCardCount called");
       return this.dealtCards ? this.dealtCards.length : 0;
     },
   },
@@ -253,9 +238,6 @@ export default {
       handler(newValue) {
         if (this.isAnimating) return;
 
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Card count changed in editor to ${newValue}`
-        );
         this.selectedCardCount = (newValue || 3).toString();
         this.cardsToDisplay = parseInt(this.selectedCardCount);
 
@@ -265,9 +247,6 @@ export default {
     },
     "content.titleColor": {
       handler(newValue) {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Title color changed to: ${newValue}`
-        );
         this.updateAllStyles();
         this.updateTitleStyles();
       },
@@ -275,9 +254,6 @@ export default {
     },
     "content.titleFontSize": {
       handler(newValue) {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Title font size changed to: ${newValue}`
-        );
         this.updateAllStyles();
         this.updateTitleStyles();
       },
@@ -333,19 +309,11 @@ export default {
           Array.isArray(newValue) &&
           JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
         ) {
-          console.log(
-            `[Tarot Card Reader] External update to dealtCardsData detected:`,
-            newValue
-          );
-
           // Update our internal state
           this.dealtCards = [...newValue];
 
           // Update global variable
           window.tarotDealtCards = [...newValue];
-          console.log(
-            "[Tarot Card Reader] Updated global variable with dealtCardsData"
-          );
         }
       },
       deep: true,
@@ -358,11 +326,6 @@ export default {
           Array.isArray(newValue) &&
           JSON.stringify(newValue) !== JSON.stringify(this.dealtCards)
         ) {
-          console.log(
-            `[Tarot Card Reader] External update to content.resultCards detected:`,
-            newValue
-          );
-
           // Update our internal state
           this.dealtCards = [...newValue];
 
@@ -376,10 +339,6 @@ export default {
     // resultCards binding to variables / workflows in a fully supported way.
     dealtCards: {
       handler(newVal) {
-        console.log(
-          "[Tarot Card Reader] dealtCards updated:",
-          JSON.stringify(newVal, null, 2)
-        );
         this.$emit(
           "update:resultCards",
           Array.isArray(newVal) ? [...newVal] : []
@@ -391,10 +350,6 @@ export default {
       handler(newValue) {
         if (this.isAnimating) return;
 
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Card pattern changed in editor to ${newValue}`
-        );
-
         // Just refresh placeholders if no cards are displayed yet
         this.updatePlaceholderCards();
       },
@@ -403,17 +358,7 @@ export default {
     // Watch for changes in the bound cards data
     "content.cardsData": {
       handler(newValue, oldValue) {
-        console.log("[Tarot Card Reader] cardsData changed!", {
-          oldLength: oldValue?.length,
-          newLength: newValue?.length,
-          newValue: newValue,
-        });
-
         if (newValue && Array.isArray(newValue) && newValue.length > 0) {
-          console.log(
-            `[Tarot Card Reader] Received ${newValue.length} cards from Xano`
-          );
-
           // Clear the cached data when source data changes
           this.cachedTarotCards = null;
           this.cachedImageUrls = {};
@@ -424,9 +369,6 @@ export default {
             !this.isAnimating &&
             !this.initializationInProgress
           ) {
-            console.log(
-              "[Tarot Card Reader] Recreating deck with new cards data"
-            );
             this.createDeck();
           }
         }
@@ -475,9 +417,6 @@ export default {
   },
   mounted() {
     this.mountCount++;
-    console.log(
-      `[Tarot Card Reader] v${this.version} - Component mounted (count: ${this.mountCount})`
-    );
 
     // Start with loading state
     this.isLoading = true;
@@ -515,28 +454,18 @@ export default {
           return null;
         },
       };
-      console.log(
-        "[Tarot Card Reader] Added tarotHelper for direct variable access"
-      );
     }
 
     // Register component for WeWeb event system if wwLib is available
     if (typeof window !== "undefined" && window.wwLib) {
       try {
-        console.log("[Tarot Card Reader] Exposing functions for WeWeb actions");
         // Register the component's functions for action workflows
         if (window.wwLib.wwObject && window.wwLib.wwObject.update) {
-          console.log(
-            "[Tarot Card Reader] Registering component functions for WeWeb actions"
-          );
           // Make functions accessible to WeWeb
           window.tarotReaderActions = {
             getDealtCards: () => {
               const result = this.getDealtCards();
-              console.log(
-                "[Tarot Card Reader] Window action getDealtCards called, returning:",
-                result
-              );
+
               return result;
             },
             clearDealtCards: () => this.clearDealtCards(),
@@ -559,33 +488,16 @@ export default {
     // Expose global access function
     if (typeof window !== "undefined") {
       window.getTarotDealtCards = () => {
-        console.log(
-          `[Tarot Card Reader] Global access: window.getTarotDealtCards called, returning:`,
-          this.dealtCards
-        );
         return [...this.dealtCards];
       };
-      console.log(
-        `[Tarot Card Reader] Exposed global function: window.getTarotDealtCards()`
-      );
 
       // Add direct access to all component functions
       window.tarotReaderComponent = this;
-      console.log(
-        "[Tarot Card Reader] Exposed component instance as window.tarotReaderComponent"
-      );
 
       // Add direct variable update function
       window.updateTarotVariableById = (variableId) => {
-        console.log(
-          `[Tarot Card Reader] Global function updateTarotVariableById called for ID: ${variableId}`
-        );
         return this.updateVariableById(variableId);
       };
-
-      console.log(
-        "[Tarot Card Reader] Exposed global function: window.updateTarotVariableById(variableId)"
-      );
     }
 
     // Update all CSS variables
@@ -594,14 +506,8 @@ export default {
     this.$nextTick(() => {
       setTimeout(() => {
         if (!this.hasInitialized && !this.initializationInProgress) {
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Initializing component after mount (first time)`
-          );
           this.initializeComponent();
         } else {
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Component already initialized or initialization in progress, skipping initialization`
-          );
         }
       }, 100);
     });
@@ -647,10 +553,7 @@ export default {
             window.wwLib.wwVariable.updateValue(variableName, [
               ...this.dealtCards,
             ]);
-            console.log(
-              `[Tarot Card Reader] Updated ${variableName} with:`,
-              this.dealtCards
-            );
+
             return true;
           } catch (error) {
             console.error(
@@ -665,9 +568,6 @@ export default {
 
       // Add the variable update by ID method
       updateVariableById: (variableId) => {
-        console.log(
-          `[Tarot Card Reader] Debug helper updateVariableById called for ID: ${variableId}`
-        );
         return this.updateVariableById(variableId);
       },
 
@@ -676,7 +576,7 @@ export default {
         if (window.wwLib && window.wwLib.wwVariable) {
           try {
             const vars = window.wwLib.wwVariable.getValues();
-            console.log("[Tarot Cards] All WeWeb variables:", vars);
+
             return vars;
           } catch (error) {
             console.error("[Tarot Cards] Error getting variables:", error);
@@ -691,10 +591,7 @@ export default {
         if (window.wwLib && window.wwLib.wwVariable) {
           try {
             const value = window.wwLib.wwVariable.getValue(variableName);
-            console.log(
-              `[Tarot Cards] Variable ${variableName} exists:`,
-              value !== undefined
-            );
+
             return value !== undefined;
           } catch (error) {
             console.error(
@@ -708,12 +605,7 @@ export default {
       },
     };
 
-    console.log("[Tarot Card Reader] Added tarotDebugHelper to window object");
-
     // Add a simple workflow helper method inside the mounted function
-    console.log(
-      "[Tarot Card Reader] Added tarotHelper for direct variable access"
-    );
 
     // Add workflow JavaScript helper (deprecated)
     window.updateLoremFromTarot = function () {
@@ -723,14 +615,9 @@ export default {
       return { success: false, reason: "helper_deprecated" };
     };
 
-    console.log(
-      "[Tarot Card Reader] Added workflow helper function window.updateLoremFromTarot()"
-    );
-
     this.updateRootStyles();
   },
   beforeUnmount() {
-    console.log(`[Tarot Card Reader] v${this.version} - Component unmounting`);
     if (this.handleResize) {
       window.removeEventListener("resize", this.handleResize);
     }
@@ -741,8 +628,6 @@ export default {
   methods: {
     // Helper method to initialize component with safe defaults
     initializeComponentDefaults() {
-      console.log("[Tarot Card Reader] Initializing component defaults");
-
       // Make sure content has all expected properties with defaults
       if (!this.content) {
         console.warn("[Tarot Card Reader] Content object is missing!");
@@ -754,19 +639,12 @@ export default {
         // Make a clean copy to avoid reactivity issues
         const cards = JSON.parse(JSON.stringify(this.content.resultCards));
         this.dealtCards = cards;
-        console.log(
-          "[Tarot Card Reader] Initialized dealtCards from content.resultCards:",
-          cards
-        );
       } else {
         // Initialize with empty array
         this.dealtCards = [];
 
         // Initialize content.resultCards if missing with an empty array
         if (!this.content.resultCards) {
-          console.log(
-            "[Tarot Card Reader] content.resultCards missing, initializing with empty array"
-          );
           this.$emit("update:content", {
             ...this.content,
             resultCards: [],
@@ -802,8 +680,6 @@ export default {
           return false;
         };
       }
-
-      console.log("[Tarot Card Reader] Component defaults initialized");
     },
 
     adjustColor(hex, percent) {
@@ -824,8 +700,6 @@ export default {
 
     // Add new method to update a specific WeWeb variable by ID
     updateVariableById(variableId, data = null) {
-      console.log(`[Tarot Card Reader] Updating variable ID: ${variableId}`);
-
       // Use the cards data if not provided
       const cardsData = data || [...this.dealtCards];
 
@@ -847,10 +721,6 @@ export default {
             window.wwLib.wwVariable.updateValue(variableId, cleanData);
           }
 
-          console.log(
-            `[Tarot Card Reader] Successfully updated variable ID: ${variableId} with:`,
-            cleanData
-          );
           return true;
         } catch (error) {
           console.error(
@@ -866,23 +736,7 @@ export default {
 
     async fetchTarotCards() {
       try {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Getting cards from bound data...`
-        );
-
         // Debug: Log what we're receiving
-        console.log(
-          "[Tarot Card Reader] content.cardsData:",
-          this.content.cardsData
-        );
-        console.log(
-          "[Tarot Card Reader] Is Array?",
-          Array.isArray(this.content.cardsData)
-        );
-        console.log(
-          "[Tarot Card Reader] Length:",
-          this.content.cardsData?.length
-        );
 
         // Check if we have bound cards data
         if (
@@ -890,10 +744,6 @@ export default {
           Array.isArray(this.content.cardsData) &&
           this.content.cardsData.length > 0
         ) {
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Using bound cards data with ${this.content.cardsData.length} cards`
-          );
-
           // Get property paths for dynamic mapping
           const titlePath = this.content.cardTitlePath || "card_title";
           const numberPath = this.content.cardNumberPath || "card_number";
@@ -918,7 +768,6 @@ export default {
           // Map the bound data to the expected format
           const tarotCards = this.content.cardsData.map((card, index) => {
             // Log the raw card data from Xano
-            console.log(`[Tarot Card Reader] Raw card data from Xano:`, card);
 
             const mappedCard = {
               id: card.id ? card.id.toString() : index.toString(),
@@ -938,13 +787,9 @@ export default {
             };
 
             // Log the mapped card
-            console.log(`[Tarot Card Reader] Mapped card data:`, mappedCard);
+
             return mappedCard;
           });
-
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Processed ${tarotCards.length} cards from bound data`
-          );
 
           return tarotCards.sort(
             (a, b) => parseInt(a.cardNumber) - parseInt(b.cardNumber)
@@ -960,9 +805,7 @@ export default {
           `[Tarot Card Reader] v${this.version} - Error processing bound cards:`,
           error
         );
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Using fallback cards due to error`
-        );
+
         return this.createFallbackCards();
       }
     },
@@ -972,9 +815,6 @@ export default {
 
       // Check if we already have this image URL cached
       if (this.cachedImageUrls[mediaId]) {
-        console.log(
-          `[Tarot Card Reader] Using cached image URL for media ID ${mediaId}`
-        );
         return this.cachedImageUrls[mediaId];
       }
 
@@ -984,10 +824,6 @@ export default {
           "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80";
         const baseUrl = apiUrl.split("/wp-json/")[0];
         const mediaUrl = `${baseUrl}/wp-json/wp/v2/media/${mediaId}`;
-
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Fetching image from: ${mediaUrl}`
-        );
 
         const response = await fetch(mediaUrl, {
           headers: {
@@ -1006,10 +842,6 @@ export default {
         }
 
         const media = await response.json();
-        console.log(
-          `[Tarot Card Reader] Media response for ID ${mediaId}:`,
-          media
-        );
 
         // Try different possible paths for the image URL in the WordPress API response
         let imageUrl = null;
@@ -1017,33 +849,21 @@ export default {
         // Primary source: source_url field
         if (media.source_url) {
           imageUrl = media.source_url;
-          console.log(
-            `[Tarot Card Reader] Found image in source_url: ${imageUrl}`
-          );
         }
         // Alternative: guid.rendered field
         else if (media.guid && media.guid.rendered) {
           imageUrl = media.guid.rendered;
-          console.log(
-            `[Tarot Card Reader] Found image in guid.rendered: ${imageUrl}`
-          );
         }
         // Alternative: media_details.sizes field (try to get the full size image)
         else if (media.media_details && media.media_details.sizes) {
           const sizes = media.media_details.sizes;
           if (sizes.full && sizes.full.source_url) {
             imageUrl = sizes.full.source_url;
-            console.log(
-              `[Tarot Card Reader] Found image in media_details.sizes.full: ${imageUrl}`
-            );
           } else {
             // If full size is not available, use the first available size
             const sizeKeys = Object.keys(sizes);
             if (sizeKeys.length > 0 && sizes[sizeKeys[0]].source_url) {
               imageUrl = sizes[sizeKeys[0]].source_url;
-              console.log(
-                `[Tarot Card Reader] Found image in media_details.sizes.${sizeKeys[0]}: ${imageUrl}`
-              );
             }
           }
         }
@@ -1051,9 +871,7 @@ export default {
         // Cache the URL for future use
         if (imageUrl) {
           this.cachedImageUrls[mediaId] = imageUrl;
-          console.log(
-            `[Tarot Card Reader] Cached image URL for media ID ${mediaId}: ${imageUrl}`
-          );
+
           return imageUrl;
         } else {
           console.error(
@@ -1072,55 +890,46 @@ export default {
 
     incrementVersion(action) {
       this.version++;
-      console.log(`[Tarot Card Reader] v${this.version} - ${action}`);
+
       return this.version;
     },
 
     initializeComponent() {
-      this.incrementVersion("Initializing component");
-
       if (this.hasInitialized) {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Component already initialized, will refresh data`
-        );
+        // Remove debug log
       }
 
-      // Set a flag to track initialization in progress
       this.initializationInProgress = true;
 
-      // Check for required DOM elements
       if (
         !this.$refs.deckElement ||
         !this.$refs.playerHandElement ||
         !this.$refs.gameArea
       ) {
         console.warn(
-          "[Tarot Card Reader] - DOM refs not ready during initialization, will retry after delay"
+          "[Tarot Card Reader] DOM refs not ready during initialization, will retry after delay"
         );
 
-        // Retry after a delay to allow DOM to render
         setTimeout(() => {
           if (
             this.$refs.deckElement &&
             this.$refs.playerHandElement &&
             this.$refs.gameArea
           ) {
-            console.log(
-              "[Tarot Card Reader] - DOM refs now available, retrying initialization"
-            );
+            // Remove debug log
             this.initializeComponent();
           } else {
-            console.error(
-              "[Tarot Card Reader] - DOM refs still not available after delay, proceeding anyway"
+            console.warn(
+              "[Tarot Card Reader] DOM refs still not available after delay, proceeding anyway"
             );
-            // Force hide the loading indicator and continue without refs
             this.isLoading = false;
             this.initializationInProgress = false;
           }
-        }, 500); // Increased delay to allow DOM to render
-
+        }, 500);
         return;
       }
+
+      this.incrementVersion("Initializing component");
 
       this.updateCardDimensions();
 
@@ -1169,10 +978,6 @@ export default {
             height: "var(--card-height)",
           });
         }
-
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Card dimensions updated: ${this.cardWidth}x${this.cardHeight}`
-        );
       } catch (err) {
         console.error(
           "[Tarot Card Reader] - Error updating card dimensions:",
@@ -1207,16 +1012,12 @@ export default {
         // Use cached cards if available to avoid unnecessary API calls
         let tarotCards;
         if (this.cachedTarotCards && this.cachedTarotCards.length > 0) {
-          console.log("[Tarot Card Reader] Using cached card data");
           tarotCards = [...this.cachedTarotCards]; // Use a copy to avoid modifying cache
         } else {
           // Fetch new data if not cached
           tarotCards = await this.fetchTarotCards();
           // Cache the data for future use
           this.cachedTarotCards = [...tarotCards];
-          console.log(
-            `[Tarot Card Reader] Cached ${tarotCards.length} cards from API`
-          );
         }
 
         if (tarotCards.length === 0) {
@@ -1246,17 +1047,6 @@ export default {
             tarotCard.card_meaning_reversed || []
           );
 
-          // Log what we're storing
-          console.log(
-            `[Tarot Card Reader] Storing data for card ${tarotCard.title}:`,
-            {
-              long_description: tarotCard.long_description,
-              description_reversed: tarotCard.description_reversed,
-              card_meaning: tarotCard.card_meaning,
-              card_meaning_reversed: tarotCard.card_meaning_reversed,
-            }
-          );
-
           // Handle image URL assignment
           if (tarotCard.imageUrl) {
             // Card already has an image URL from previous fetch
@@ -1266,10 +1056,6 @@ export default {
             if (!this.cachedTarotCards[i].imageUrl) {
               this.cachedTarotCards[i].imageUrl = tarotCard.imageUrl;
             }
-
-            console.log(
-              `Card ${tarotCard.title} has existing image: ${tarotCard.imageUrl}`
-            );
           } else if (tarotCard.featuredMediaId) {
             // Card has featured media ID but needs image URL
 
@@ -1278,19 +1064,12 @@ export default {
               const cachedUrl = this.cachedImageUrls[tarotCard.featuredMediaId];
               card.dataset.imageUrl = cachedUrl;
 
-              console.log(
-                `Card ${tarotCard.title} using cached image URL for media ID: ${tarotCard.featuredMediaId}`
-              );
-
               // Update the cached card data too
               if (!this.cachedTarotCards[i].imageUrl) {
                 this.cachedTarotCards[i].imageUrl = cachedUrl;
               }
             } else {
               // Need to fetch image URL from API
-              console.log(
-                `Fetching image for card ${tarotCard.title} with media ID: ${tarotCard.featuredMediaId}`
-              );
 
               const imageUrl = await this.fetchCardImage(
                 tarotCard.featuredMediaId
@@ -1304,10 +1083,6 @@ export default {
                 if (!this.cachedTarotCards[i].imageUrl) {
                   this.cachedTarotCards[i].imageUrl = imageUrl;
                 }
-
-                console.log(
-                  `Card ${tarotCard.title} fetched image from API: ${imageUrl}`
-                );
               } else {
                 // Failed to fetch image URL, use fallback
                 console.warn(
@@ -1517,9 +1292,6 @@ export default {
         });
       });
 
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Created ${fallbackCards.length} fallback cards with images`
-      );
       return fallbackCards;
     },
 
@@ -1619,10 +1391,6 @@ export default {
 
       playerHandElement.style.minHeight = `${availableSpace}px`;
       playerHandElement.style.height = `${availableSpace}px`;
-
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Hand area height updated: ${availableSpace}px (based on game area: ${gameAreaHeight}px)`
-      );
     },
 
     shuffleArray(array) {
@@ -1643,7 +1411,7 @@ export default {
           !this.$refs.gameArea ||
           !this.$refs.playerHandElement
         ) {
-          console.warn("Required DOM elements not found");
+          console.warn("[Tarot Card Reader] Required DOM elements not found");
           return;
         }
 
@@ -1652,8 +1420,6 @@ export default {
 
         // We need initialization to complete first time we run
         if (!this.hasInitialized && this.deckCards.length < 1) return;
-
-        console.log("[Tarot Card Reader] Starting shuffle and deal sequence");
 
         // Ensure styles are up to date before animation
         this.updateRootStyles();
@@ -1674,10 +1440,6 @@ export default {
             name: "cardsCleared",
             payload: {},
           });
-
-          console.log(
-            "[Tarot Card Reader] Emitted 'trigger-event' with name: 'cardsCleared'"
-          );
         }
 
         this.isAnimating = true;
@@ -1687,19 +1449,7 @@ export default {
         const deckElement = this.$refs.deckElement;
         const gameArea = this.$refs.gameArea;
 
-        // IMPORTANT: Always reset the deck first
-        console.log("[Tarot Card Reader] Resetting deck before shuffle");
-        const deckReset = this.resetDeck();
-
-        if (!deckReset) {
-          console.error(
-            "[Tarot Card Reader] Failed to reset deck, aborting shuffle"
-          );
-          this.isAnimating = false;
-          shuffleDealButton.disabled = false;
-          shuffleDealButton.classList.remove("shuffling");
-          return;
-        }
+        // Rest of the method...
 
         const animationTimeout = setTimeout(() => {
           if (this.isAnimating) {
@@ -1758,26 +1508,11 @@ export default {
         this.deckCards.forEach((card) => deckElement.appendChild(card));
         this.incrementVersion("Cards shuffled");
 
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Animation values:`,
-          {
-            gameAreaWidth,
-            gameAreaHeight,
-            deckTopPosition,
-            centerPosition: centerX + "px",
-            deckSize: this.deckCards.length,
-          }
-        );
-
         const isLargeDeck = this.deckCards.length > 30;
 
         const animationCards = isLargeDeck
           ? this.deckCards.slice(0, Math.min(30, this.deckCards.length))
           : this.deckCards;
-
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Animating ${animationCards.length} cards out of ${this.deckCards.length} total`
-        );
 
         const tl = gsap.timeline({
           defaults: { ease: "power2.inOut" },
@@ -1935,16 +1670,7 @@ export default {
           return;
         }
 
-        console.log(
-          `[Tarot Card Reader] dealCards: Starting the deal process for ${this.cardsToDisplay} cards`
-        );
-
         // Debug log the card flipping settings
-        console.log("[Tarot Card Reader] Card flipping settings:", {
-          enabled: !!this.content.enableCardFlipping,
-          probability: this.content.cardFlipProbability || 20,
-          maxFlipped: this.content.maxFlippedCards || 1,
-        });
 
         const playerHandElement = this.$refs.playerHandElement;
 
@@ -2061,10 +1787,6 @@ export default {
           const probability = parseInt(this.content.cardFlipProbability || 20); // Default 20%
           const maxFlipped = parseInt(this.content.maxFlippedCards || 1); // Default max 1 card
 
-          console.log(
-            `[Tarot Card Reader] Card flipping ENABLED - Probability: ${probability}%, Max flipped: ${maxFlipped}`
-          );
-
           // Simplify the approach - create an array of indices and shuffle it
           const allIndices = Array.from(
             { length: cardsToDisplayCount },
@@ -2077,9 +1799,6 @@ export default {
           for (let index of shuffledIndices) {
             // Generate a random number between 0-100
             const randomValue = Math.floor(Math.random() * 100);
-            console.log(
-              `[Tarot Card Reader] Card ${index} random value: ${randomValue}, probability: ${probability}`
-            );
 
             // If random value is less than probability, flip the card
             if (randomValue < probability) {
@@ -2092,14 +1811,7 @@ export default {
               }
             }
           }
-
-          console.log(
-            `[Tarot Card Reader] Selected ${
-              flippedCardsIndices.length
-            } cards to be flipped: ${flippedCardsIndices.join(", ")}`
-          );
         } else {
-          console.log("[Tarot Card Reader] Card flipping is DISABLED");
         }
 
         this.updateCardDimensions();
@@ -2136,10 +1848,6 @@ export default {
 
             // Determine if this card should be flipped
             const isCardFlipped = flippedCardsIndices.includes(i);
-
-            console.log(
-              `[Tarot Card Reader] Card ${i} - Will be flipped: ${isCardFlipped}`
-            );
 
             // Extract and store the card data
             dealtCardsData.push({
@@ -2243,7 +1951,6 @@ export default {
                     if (card.dataset.imageUrl) {
                       // Get the image URL from the dataset
                       const imageUrl = card.dataset.imageUrl;
-                      console.log(`Setting card face image: ${imageUrl}`);
 
                       // Set the image as background with proper styling
                       card.style.backgroundImage = `url('${imageUrl}')`;
@@ -2255,11 +1962,7 @@ export default {
 
                       // Verify image loads correctly
                       const tempImg = new Image();
-                      tempImg.onload = () => {
-                        console.log(
-                          `Card image loaded successfully: ${imageUrl}`
-                        );
-                      };
+                      tempImg.onload = () => {};
                       tempImg.onerror = () => {
                         console.error(`Failed to load card image: ${imageUrl}`);
                         // Set a fallback background color on error
@@ -2357,10 +2060,6 @@ export default {
                       // Use direct DOM manipulation to ensure rotation is applied
                       card.style.transform = "rotate(180deg)";
                       card.style.transformOrigin = "center center";
-
-                      console.log(
-                        `[Tarot Card Reader] Card ${i} flipped upside down - applied direct style transform`
-                      );
                     }
                   } catch (err) {
                     console.error(
@@ -2400,12 +2099,6 @@ export default {
         // After all cards are dealt and animations are complete
         dealTl.add(() => {
           try {
-            console.log("[Tarot Card Reader] Finalizing dealt cards");
-            console.log(
-              "[Tarot Card Reader] Raw dealtCardsData:",
-              JSON.stringify(dealtCardsData, null, 2)
-            );
-
             // Create a clean, non-reactive copy of the card data
             const cleanCardData = dealtCardsData.map((card) => ({
               id: card.id,
@@ -2420,33 +2113,19 @@ export default {
               card_meaning_reversed: card.card_meaning_reversed,
             }));
 
-            console.log(
-              "[Tarot Card Reader] Clean card data:",
-              JSON.stringify(cleanCardData, null, 2)
-            );
-
             // Update our internal state
             this.dealtCards = cleanCardData;
 
             // CORRECT APPROACH: Create a copy of content, don't modify directly
             // Add a delay to ensure WeWeb has time to process the binding
             setTimeout(() => {
-              console.log(
-                "[Tarot Card Reader] Emitting update with cards:",
-                JSON.stringify(cleanCardData, null, 2)
-              );
               this.$emit("update:content", {
                 ...this.content,
                 resultCards: cleanCardData,
               });
 
-              console.log(
-                "[Tarot Card Reader] Emitted update:content with resultCards"
-              );
-
               // Emit dedicated event right after
               this.$emit("update:resultCards", cleanCardData);
-              console.log("[Tarot Card Reader] Emitted update:resultCards");
 
               // Create workflow payload
               const eventPayload = {
@@ -2465,10 +2144,6 @@ export default {
 
               // Emit the event for workflows with a delay
               setTimeout(() => {
-                console.log(
-                  "[Tarot Card Reader] Emitting cardsDealt event with payload:",
-                  JSON.stringify(eventPayload, null, 2)
-                );
                 this.$emit("trigger-event", {
                   name: "cardsDealt",
                   payload: eventPayload,
@@ -2528,9 +2203,6 @@ export default {
       }
 
       this.updateHandAreaHeight(numCards);
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Created ${numCards} placeholders`
-      );
     },
 
     moveRemainingDeckBack() {
@@ -2566,8 +2238,6 @@ export default {
               );
 
               // FINAL ANIMATION COMPLETION - at this point cards are fully dealt and visible
-              console.log("[Tarot Card Reader] ANIMATION SEQUENCE COMPLETE");
-
               // Recreate the deck overlay now that animation is complete
               this.createDeckOverlay();
 
@@ -2608,10 +2278,6 @@ export default {
       });
 
       if (imageUrls.length > 0) {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Preloading ${imageUrls.length} card images`
-        );
-
         const imagePromises = imageUrls.map((url) => {
           return new Promise((resolve, reject) => {
             const img = new Image();
@@ -2628,14 +2294,8 @@ export default {
           const failedCount = results.filter(
             (r) => r.status === "rejected"
           ).length;
-          console.log(
-            `[Tarot Card Reader] v${this.version} - Preloaded ${loadedCount} images, ${failedCount} failed`
-          );
         });
       } else {
-        console.log(
-          `[Tarot Card Reader] v${this.version} - No images to preload`
-        );
       }
     },
 
@@ -2763,23 +2423,16 @@ export default {
 
     // Add a method to get current dealt cards
     getDealtCards() {
-      console.log("[Tarot Card Reader] Direct action getDealtCards called");
       return this.dealtCards ? [...this.dealtCards] : [];
     },
 
     // Clear dealt cards
     clearDealtCards() {
-      console.log("[Tarot Card Reader] Action clearDealtCards called");
-
       // Clear the local array
       this.dealtCards = [];
 
       // Notify WeWeb bindings immediately
       this.$emit("update:resultCards", []);
-
-      console.log(
-        "[Tarot Card Reader] Cleared resultCards property in content binding"
-      );
 
       // Update global variable
       window.tarotDealtCards = [];
@@ -2789,8 +2442,6 @@ export default {
         name: "cardsCleared",
         payload: {},
       });
-
-      console.log("[Tarot Card Reader] Emitted cardsCleared event");
 
       // Reflect the change in the full content object first
       this.$emit("update:content", {
@@ -2806,17 +2457,11 @@ export default {
 
     // In the script section, add a special API method that WeWeb can access
     wwGetDealtCards: function () {
-      console.log(
-        "[Tarot Card Reader] wwGetDealtCards called, returning:",
-        this.dealtCards
-      );
       return this.dealtCards;
     },
 
     // Add a "set" method specifically for WeWeb
     setResultCards: function (cards) {
-      console.log("[Tarot Card Reader] setResultCards called with:", cards);
-
       // Only update our local property, and let the watcher emit events
       this.dealtCards = Array.isArray(cards) ? [...cards] : [];
 
@@ -2825,17 +2470,11 @@ export default {
 
     // Add a getter method specifically for WeWeb
     getResultCards: function () {
-      console.log("[Tarot Card Reader] getResultCards called");
       return this.dealtCards;
     },
 
     // Emit events in the documented WeWeb format
     emitWWEvent(eventName, data = {}) {
-      console.log(
-        `[Tarot Card Reader] Emitting WeWeb event '${eventName}' via trigger-event with payload:`,
-        data
-      );
-
       // Use the official WeWeb trigger-event format
       this.$emit("trigger-event", {
         name: eventName,
@@ -2845,8 +2484,6 @@ export default {
 
     // Add dedicated method for cardRes sync
     syncCardRes() {
-      console.log("[Tarot Card Reader] Method syncCardRes called");
-
       // The dealtCards watcher handles emitting update:content and attempting to update cardRes variable.
       // We keep it here in case it's directly called by an action in WeWeb, but its direct update to cardRes might still fail if cardRes is not found.
 
@@ -2855,18 +2492,12 @@ export default {
         resultCards: [...this.dealtCards],
         dealtCardsData: [...this.dealtCards],
       });
-      console.log(
-        "[Tarot Card Reader] Emitted update:content from syncCardRes method (watcher should also run)"
-      );
 
       // Attempt to update cardRes directly, acknowledging it might fail if variable doesn't exist.
       if (window.wwLib && window.wwLib.wwVariable) {
         try {
           window.wwLib.wwVariable.updateValue("cardRes", [...this.dealtCards]);
-          console.log(
-            "[Tarot Card Reader] Attempted to sync cardRes directly from syncCardRes method with dealtCards:",
-            this.dealtCards
-          );
+
           return true;
         } catch (error) {
           console.error(
@@ -2881,10 +2512,6 @@ export default {
 
     // Update a specific WeWeb variable with the dealt cards
     updateVariable: function (variableName) {
-      console.log(
-        `[Tarot Card Reader] Action updateVariable called for ${variableName}`
-      );
-
       if (!variableName) {
         console.error(
           "[Tarot Card Reader] Variable name is required for updateVariable action"
@@ -2897,9 +2524,7 @@ export default {
           window.wwLib.wwVariable.updateValue(variableName, [
             ...this.dealtCards,
           ]);
-          console.log(
-            `[Tarot Card Reader] Successfully updated WeWeb variable '${variableName}'`
-          );
+
           return true;
         } catch (error) {
           console.error(
@@ -2912,9 +2537,6 @@ export default {
       // Also try direct content binding
       if (this.content) {
         this.content.resultCards = [...this.dealtCards];
-        console.log(
-          `[Tarot Card Reader] Updated content.resultCards as fallback`
-        );
       }
 
       return false;
@@ -2935,10 +2557,6 @@ export default {
         this.$emit("update:content", {
           dealtCardsData: [...this.dealtCards],
         });
-
-        console.log(
-          "[Tarot Card Reader] Updated dealtCardsData property with array data"
-        );
       } catch (err) {
         console.error(
           "[Tarot Card Reader] Error updating dealtCardsData:",
@@ -2949,14 +2567,11 @@ export default {
 
     // Add a direct method WeWeb can call
     getCardsJson() {
-      console.log("[Tarot Card Reader] getCardsJson called");
       return JSON.stringify(this.dealtCards || []);
     },
 
     // Method to synchronize data with WeWeb
     syncResultCards() {
-      console.log("[Tarot Card Reader] Method syncResultCards called");
-
       // Ensure content is updated via standard emit
       this.$emit("update:content", {
         resultCards: [...this.dealtCards],
@@ -2965,16 +2580,13 @@ export default {
       // Update global variable
       window.tarotDealtCards = [...this.dealtCards];
 
-      console.log("[Tarot Card Reader] Synchronized data with WeWeb");
-
       return [...this.dealtCards];
     },
 
     // Get count of dealt cards - simple number return for WeWeb workflows
     getDealtCardsCount() {
-      console.log("[Tarot Card Reader] getDealtCardsCount called");
       const count = this.dealtCards ? this.dealtCards.length : 0;
-      console.log("[Tarot Card Reader] Returning dealt cards count:", count);
+
       return count;
     },
 
@@ -3005,23 +2617,16 @@ export default {
         },
       ];
 
-      console.log("[Tarot Card Reader] Creating test cards");
-
       // Set local data
       this.dealtCards = testCards;
 
       // Skip the binding update for now - we'll do it manually
-      console.log(
-        "[Tarot Card Reader] Test cards created, use the manual update button"
-      );
 
       return testCards;
     },
 
     // Implement the manual binding update method
     manuallyUpdateBinding() {
-      console.log("[Tarot Card Reader] Manually updating binding");
-
       // Create a new object for content update
       const contentUpdate = Object.assign({}, this.content);
 
@@ -3030,8 +2635,6 @@ export default {
 
       // Emit the update
       this.$emit("update:content", contentUpdate);
-
-      console.log("[Tarot Card Reader] Manual binding update complete");
 
       // If you need to push the dealt cards manually, call
       // `window.tarotReaderComponent.updateVariableById(theUuid)` from a
@@ -3043,11 +2646,6 @@ export default {
       if (!id || !window.wwLib || !window.wwLib.wwVariable) return;
       try {
         const current = window.wwLib.wwVariable.getValue(id);
-        console.log(
-          `[Tarot Card Reader] verifyVariableSync → variable ${id}:`,
-          current,
-          expectedArray
-        );
       } catch (err) {
         console.warn(
           `[Tarot Card Reader] verifyVariableSync failed for ${id}:`,
@@ -3110,16 +2708,10 @@ export default {
         // Add to the container
         placeholdersContainer.appendChild(placeholder);
       }
-
-      console.log(
-        `[Tarot Card Reader] v${this.version} - Created relationship pattern placeholders with grid layout and auto height`
-      );
     },
 
     // Method to handle clicking on the deck to shuffle
     shuffleFromDeck(event) {
-      console.log("[Tarot Card Reader] Shuffle triggered from deck overlay");
-
       // Call the main shuffle method - it will reset the deck
       this.shuffleAndDeal();
 
@@ -3131,7 +2723,6 @@ export default {
         // Check if it's a double click (within 300ms)
         if (currentTime - this.lastDeckClickTime < 300) {
           // Handle double-click if needed
-          console.log("[Tarot Card Reader] Double-click detected on deck");
         }
         this.lastDeckClickTime = currentTime;
       }
@@ -3139,8 +2730,6 @@ export default {
 
     // Add a method to reset the deck completely
     resetDeck() {
-      console.log("[Tarot Card Reader] Resetting deck completely");
-
       if (!this.$refs.deckElement) {
         console.warn("[Tarot Card Reader] No deck element available for reset");
         return false;
@@ -3156,9 +2745,6 @@ export default {
       try {
         // Use cached cards if available to avoid unnecessary API calls
         if (!this.cachedTarotCards || this.cachedTarotCards.length === 0) {
-          console.log(
-            "[Tarot Card Reader] No cached cards available, fetching from API"
-          );
           // Only make API call if we have no cached data
           return this.createDeck();
         }
@@ -3185,25 +2771,16 @@ export default {
           if (tarotCard.imageUrl) {
             // Card already has an image URL from previous fetch
             card.dataset.imageUrl = tarotCard.imageUrl;
-            console.log(
-              `Reset: Card ${tarotCard.title} using cached image URL: ${tarotCard.imageUrl}`
-            );
           } else if (tarotCard.featuredMediaId) {
             // Check if we already have this image URL cached
             if (this.cachedImageUrls[tarotCard.featuredMediaId]) {
               const cachedUrl = this.cachedImageUrls[tarotCard.featuredMediaId];
               card.dataset.imageUrl = cachedUrl;
-              console.log(
-                `Reset: Card ${tarotCard.title} using cached image URL for media ID: ${tarotCard.featuredMediaId}`
-              );
 
               // Update the cached card data for future reference
               this.cachedTarotCards[i].imageUrl = cachedUrl;
             } else {
               // Need to fetch from API since we don't have the image URL cached
-              console.log(
-                `Reset: Fetching image for card ${tarotCard.title} with media ID: ${tarotCard.featuredMediaId}`
-              );
 
               // We'll fetch this asynchronously to not block the reset
               this.fetchCardImage(tarotCard.featuredMediaId)
@@ -3211,9 +2788,6 @@ export default {
                   if (imageUrl) {
                     card.dataset.imageUrl = imageUrl;
                     this.cachedTarotCards[i].imageUrl = imageUrl;
-                    console.log(
-                      `Reset: Fetched image for card ${tarotCard.title}: ${imageUrl}`
-                    );
                   } else {
                     console.warn(
                       `Reset: Failed to fetch image for card ${tarotCard.title}, using fallback`
@@ -3269,9 +2843,6 @@ export default {
         // Add the shuffle overlay to the deck
         this.createDeckOverlay();
 
-        console.log(
-          `[Tarot Card Reader] Deck reset complete with ${this.deckCards.length} cards`
-        );
         return true;
       } catch (error) {
         console.error("[Tarot Card Reader] Error resetting deck:", error);
@@ -3282,11 +2853,9 @@ export default {
     updateRootStyles() {
       try {
         const root = document.documentElement;
-        // Update all CSS variables
         Object.entries(this.cssVars).forEach(([key, value]) => {
           root.style.setProperty(key, value);
         });
-        console.log("[Tarot Card Reader] Root styles updated");
       } catch (err) {
         console.error("[Tarot Card Reader] Error updating root styles:", err);
       }
