@@ -411,6 +411,18 @@ export default {
       defaultValue: "Shuffle & Reveal",
       section: "Content",
     },
+    overlayText: {
+      label: {
+        en: "Deck Overlay Text",
+      },
+      type: "Text",
+      defaultValue: "Click to shuffle",
+      section: "Content",
+      bindable: true,
+      description: {
+        en: "The text shown on the deck overlay when hovering",
+      },
+    },
     resultCards: {
       label: {
         en: "Result Cards",

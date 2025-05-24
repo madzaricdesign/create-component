@@ -432,6 +432,21 @@ export default {
       immediate: true,
       deep: true,
     },
+    "content.overlayText": {
+      handler(newValue) {
+        if (this.$refs.deckElement) {
+          const overlaySpan =
+            this.$refs.deckElement.querySelector(".deck-overlay span");
+          if (overlaySpan) {
+            overlaySpan.textContent = newValue || "Click to shuffle";
+          } else {
+            // If no overlay exists, recreate it
+            this.createDeckOverlay();
+          }
+        }
+      },
+      immediate: true,
+    },
   },
   mounted() {
     this.mountCount++;
@@ -1352,7 +1367,7 @@ export default {
       deckOverlay.className = "deck-overlay";
 
       const overlayText = document.createElement("span");
-      overlayText.textContent = "Click to shuffle";
+      overlayText.textContent = this.content.overlayText || "Click to shuffle";
       deckOverlay.appendChild(overlayText);
 
       // Add click event listener
