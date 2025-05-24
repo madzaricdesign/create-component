@@ -3027,7 +3027,7 @@ export default {
       placeholdersContainer.style.gridTemplateColumns = "1fr 1fr 1fr";
       placeholdersContainer.style.gridTemplateRows = "1fr 1fr 1fr";
       placeholdersContainer.style.gap = "30px 10px";
-      placeholdersContainer.style.padding = "20px";
+      placeholdersContainer.style.padding = "0";
       playerHandElement.appendChild(placeholdersContainer);
 
       // Card positions in the grid based on the screenshot pattern
