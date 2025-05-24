@@ -374,13 +374,14 @@ export default {
     // resultCards binding to variables / workflows in a fully supported way.
     dealtCards: {
       handler(newVal) {
-        // Dealt cards changed – propagate the standard update event
+        console.log(
+          "[Tarot Card Reader] dealtCards updated:",
+          JSON.stringify(newVal, null, 2)
+        );
         this.$emit(
           "update:resultCards",
           Array.isArray(newVal) ? [...newVal] : []
         );
-
-        // No per-frame logging or verification – keeps the editor fast
       },
       deep: true,
     },
@@ -855,7 +856,6 @@ export default {
           const titlePath = this.content.cardTitlePath || "card_title";
           const numberPath = this.content.cardNumberPath || "card_number";
           const imagePath = this.content.cardImagePath || "image.url";
-          const meaningPath = this.content.cardMeaningPath || "card_meaning";
           const descriptionPath =
             this.content.cardDescriptionPath || "card_description";
           const longDescriptionPath =
@@ -863,10 +863,10 @@ export default {
           const descriptionReversedPath =
             this.content.cardDescriptionReversedPath || "description_reversed";
           const cardMeaningPath =
-            this.content.cardMeaningArrayPath || "card_meaning_array";
+            this.content.cardMeaningArrayPath || "card_meaning"; // Changed to exact Xano field
           const cardMeaningReversedPath =
             this.content.cardMeaningReversedArrayPath ||
-            "card_meaning_reversed_array";
+            "card_meaning_reversed"; // Changed to exact Xano field
 
           // Helper function to get nested property value
           const getNestedProperty = (obj, path) => {
@@ -875,29 +875,28 @@ export default {
 
           // Map the bound data to the expected format
           const tarotCards = this.content.cardsData.map((card, index) => {
+            // Log the raw card data from Xano
+            console.log(`[Tarot Card Reader] Raw card data from Xano:`, card);
+
             const mappedCard = {
               id: card.id ? card.id.toString() : index.toString(),
-              title: getNestedProperty(card, titlePath) || "Unnamed Card",
-              cardNumber:
-                getNestedProperty(card, numberPath) || index.toString(),
-              imageUrl: getNestedProperty(card, imagePath) || null,
-              cardMeaning: getNestedProperty(card, meaningPath) || "",
-              cardDescription: getNestedProperty(card, descriptionPath) || "",
-              long_description:
-                getNestedProperty(card, longDescriptionPath) || "",
-              description_reversed:
-                getNestedProperty(card, descriptionReversedPath) || "",
-              card_meaning: getNestedProperty(card, cardMeaningPath) || [],
-              card_meaning_reversed:
-                getNestedProperty(card, cardMeaningReversedPath) || [],
-              featuredMediaId: null, // Not needed when using direct URLs
+              title: card.card_title || "Unnamed Card",
+              cardNumber: card.card_number?.toString() || index.toString(),
+              imageUrl: card.image?.url || null,
+              cardDescription: card.card_description || "",
+              long_description: card.long_description || "",
+              description_reversed: card.description_reversed || "",
+              card_meaning: Array.isArray(card.card_meaning)
+                ? card.card_meaning
+                : [],
+              card_meaning_reversed: Array.isArray(card.card_meaning_reversed)
+                ? card.card_meaning_reversed
+                : [],
+              featuredMediaId: null,
             };
 
-            console.log(
-              `[Tarot Card Reader] Mapped card ${index}:`,
-              mappedCard
-            );
-
+            // Log the mapped card
+            console.log(`[Tarot Card Reader] Mapped card data:`, mappedCard);
             return mappedCard;
           });
 
@@ -1203,6 +1202,17 @@ export default {
           );
           card.dataset.cardMeaningReversed = JSON.stringify(
             tarotCard.card_meaning_reversed || []
+          );
+
+          // Log what we're storing
+          console.log(
+            `[Tarot Card Reader] Storing data for card ${tarotCard.title}:`,
+            {
+              long_description: tarotCard.long_description,
+              description_reversed: tarotCard.description_reversed,
+              card_meaning: tarotCard.card_meaning,
+              card_meaning_reversed: tarotCard.card_meaning_reversed,
+            }
           );
 
           // Handle image URL assignment
@@ -2091,14 +2101,18 @@ export default {
               imageUrl: card.dataset.imageUrl || null,
               index: i,
               cardFlipped: isCardFlipped,
-              long_description: card.dataset.longDescription || "",
-              description_reversed: card.dataset.descriptionReversed || "",
-              card_meaning: card.dataset.cardMeaning
-                ? JSON.parse(card.dataset.cardMeaning)
-                : [],
-              card_meaning_reversed: card.dataset.cardMeaningReversed
-                ? JSON.parse(card.dataset.cardMeaningReversed)
-                : [],
+              long_description:
+                this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
+                  ?.long_description || "",
+              description_reversed:
+                this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
+                  ?.description_reversed || "",
+              card_meaning:
+                this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
+                  ?.card_meaning || [],
+              card_meaning_reversed:
+                this.cachedTarotCards.find((c) => c.id === card.dataset.tarotId)
+                  ?.card_meaning_reversed || [],
             });
 
             // Get first bounds before any DOM changes
@@ -2339,6 +2353,10 @@ export default {
         dealTl.add(() => {
           try {
             console.log("[Tarot Card Reader] Finalizing dealt cards");
+            console.log(
+              "[Tarot Card Reader] Raw dealtCardsData:",
+              JSON.stringify(dealtCardsData, null, 2)
+            );
 
             // Create a clean, non-reactive copy of the card data
             const cleanCardData = dealtCardsData.map((card) => ({
@@ -2354,69 +2372,61 @@ export default {
               card_meaning_reversed: card.card_meaning_reversed,
             }));
 
+            console.log(
+              "[Tarot Card Reader] Clean card data:",
+              JSON.stringify(cleanCardData, null, 2)
+            );
+
             // Update our internal state
             this.dealtCards = cleanCardData;
 
             // CORRECT APPROACH: Create a copy of content, don't modify directly
             // Add a delay to ensure WeWeb has time to process the binding
             setTimeout(() => {
+              console.log(
+                "[Tarot Card Reader] Emitting update with cards:",
+                JSON.stringify(cleanCardData, null, 2)
+              );
               this.$emit("update:content", {
-                ...this.content, // Keep all other properties
-                resultCards: cleanCardData, // Update just resultCards
+                ...this.content,
+                resultCards: cleanCardData,
               });
 
               console.log(
-                "[Tarot Card Reader] Emitted update:content with resultCards",
-                cleanCardData
+                "[Tarot Card Reader] Emitted update:content with resultCards"
               );
 
-              // Emit dedicated event right after, to ensure external variable receives the update
+              // Emit dedicated event right after
               this.$emit("update:resultCards", cleanCardData);
+              console.log("[Tarot Card Reader] Emitted update:resultCards");
 
-              console.log(
-                "[Tarot Card Reader] Emitted update:resultCards directly after update:content"
-              );
+              // Create workflow payload
+              const eventPayload = {
+                count: cleanCardData.length,
+                firstCardTitle:
+                  cleanCardData.length > 0 ? cleanCardData[0].title : null,
+                cards: cleanCardData,
+                cardsJson: JSON.stringify(cleanCardData),
+                card1: cleanCardData.length > 0 ? cleanCardData[0] : null,
+                card2: cleanCardData.length > 1 ? cleanCardData[1] : null,
+                card3: cleanCardData.length > 2 ? cleanCardData[2] : null,
+                card4: cleanCardData.length > 3 ? cleanCardData[3] : null,
+                card5: cleanCardData.length > 4 ? cleanCardData[4] : null,
+                rawCards: cleanCardData,
+              };
 
-              // (Verification helper removed)
-            }, 1000); // 1 second delay as you mentioned
-
-            // Create workflow payload
-            const eventPayload = {
-              count: cleanCardData.length,
-              firstCardTitle:
-                cleanCardData.length > 0 ? cleanCardData[0].title : null,
-              cards: cleanCardData,
-              cardsJson: JSON.stringify(cleanCardData),
-              card1: cleanCardData.length > 0 ? cleanCardData[0] : null,
-              card2: cleanCardData.length > 1 ? cleanCardData[1] : null,
-              card3: cleanCardData.length > 2 ? cleanCardData[2] : null,
-              card4: cleanCardData.length > 3 ? cleanCardData[3] : null,
-              card5: cleanCardData.length > 4 ? cleanCardData[4] : null,
-              rawCards: cleanCardData,
-            };
-
-            // Emit the event for workflows with a delay
-            setTimeout(() => {
-              this.$emit("trigger-event", {
-                name: "cardsDealt",
-                payload: eventPayload,
-              });
-
-              console.log(
-                "[Tarot Card Reader] Emitted workflow event with delay"
-              );
-            }, 1000); // 1 second delay as you mentioned
-
-            // Add visual effect
-            gsap.to(cardsToDealElements, {
-              boxShadow: "0 0 8px rgba(255,255,255,0.7)",
-              duration: 0.1,
-              yoyo: true,
-              repeat: 1,
-            });
-
-            // Inform WeWeb bindings immediately
-            this.$emit("update:resultCards", cleanCardData);
+              // Emit the event for workflows with a delay
+              setTimeout(() => {
+                console.log(
+                  "[Tarot Card Reader] Emitting cardsDealt event with payload:",
+                  JSON.stringify(eventPayload, null, 2)
+                );
+                this.$emit("trigger-event", {
+                  name: "cardsDealt",
+                  payload: eventPayload,
+                });
+              }, 1000);
+            }, 1000);
           } catch (err) {
             console.error(
               "[Tarot Card Reader] - Error in dealTl.add callback:",
