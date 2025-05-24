@@ -397,6 +397,40 @@ export default {
       },
       immediate: true,
     },
+    // Watch for changes in the bound cards data
+    "content.cardsData": {
+      handler(newValue, oldValue) {
+        console.log("[Tarot Card Reader] cardsData changed!", {
+          oldLength: oldValue?.length,
+          newLength: newValue?.length,
+          newValue: newValue,
+        });
+
+        if (newValue && Array.isArray(newValue) && newValue.length > 0) {
+          console.log(
+            `[Tarot Card Reader] Received ${newValue.length} cards from Xano`
+          );
+
+          // Clear the cached data when source data changes
+          this.cachedTarotCards = null;
+          this.cachedImageUrls = {};
+
+          // If component is already initialized, recreate the deck with new data
+          if (
+            this.hasInitialized &&
+            !this.isAnimating &&
+            !this.initializationInProgress
+          ) {
+            console.log(
+              "[Tarot Card Reader] Recreating deck with new cards data"
+            );
+            this.createDeck();
+          }
+        }
+      },
+      immediate: true,
+      deep: true,
+    },
   },
   mounted() {
     this.mountCount++;
@@ -790,121 +824,103 @@ export default {
     async fetchTarotCards() {
       try {
         console.log(
-          `[Tarot Card Reader] v${this.version} - Fetching cards from WordPress API...`
+          `[Tarot Card Reader] v${this.version} - Getting cards from bound data...`
         );
 
-        const apiUrl =
-          this.content.apiUrl ||
-          "https://b145kh3.myrdbx.io/wp-json/wp/v2/waite-tarot?per_page=80";
+        // Debug: Log what we're receiving
         console.log(
-          `[Tarot Card Reader] v${this.version} - Using API URL: ${apiUrl}`
+          "[Tarot Card Reader] content.cardsData:",
+          this.content.cardsData
+        );
+        console.log(
+          "[Tarot Card Reader] Is Array?",
+          Array.isArray(this.content.cardsData)
+        );
+        console.log(
+          "[Tarot Card Reader] Length:",
+          this.content.cardsData?.length
         );
 
-        const response = await fetch(apiUrl, {
-          headers: {
-            Accept: "application/json",
-            "Content-Type": "application/json",
-          },
-          mode: "cors",
-          credentials: "omit",
-        });
-
-        if (!response.ok) {
-          const responseText = await response.text();
-          console.error(
-            `[Tarot Card Reader] v${this.version} - API returned non-OK status:`,
-            response.status
-          );
-          console.error(
-            "Response text:",
-            responseText.substring(0, 500) + "..."
-          );
-          throw new Error(`API request failed with status ${response.status}`);
-        }
-
-        const responseText = await response.text();
-
+        // Check if we have bound cards data
         if (
-          responseText.trim().startsWith("<!DOCTYPE") ||
-          responseText.trim().startsWith("<html")
+          this.content.cardsData &&
+          Array.isArray(this.content.cardsData) &&
+          this.content.cardsData.length > 0
         ) {
-          console.error(
-            `[Tarot Card Reader] v${this.version} - API returned HTML instead of JSON:`,
-            responseText.substring(0, 500) + "..."
+          console.log(
+            `[Tarot Card Reader] v${this.version} - Using bound cards data with ${this.content.cardsData.length} cards`
           );
-          throw new Error("API returned HTML instead of JSON");
-        }
 
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error(
-            `[Tarot Card Reader] v${this.version} - Failed to parse response as JSON:`,
-            parseError
-          );
-          console.error(
-            "Response text:",
-            responseText.substring(0, 500) + "..."
-          );
-          throw parseError;
-        }
+          // Get property paths for dynamic mapping
+          const titlePath = this.content.cardTitlePath || "card_title";
+          const numberPath = this.content.cardNumberPath || "card_number";
+          const imagePath = this.content.cardImagePath || "image.url";
+          const meaningPath = this.content.cardMeaningPath || "card_meaning";
+          const descriptionPath =
+            this.content.cardDescriptionPath || "card_description";
+          const longDescriptionPath =
+            this.content.cardLongDescriptionPath || "long_description";
+          const descriptionReversedPath =
+            this.content.cardDescriptionReversedPath || "description_reversed";
+          const cardMeaningPath =
+            this.content.cardMeaningArrayPath || "card_meaning_array";
+          const cardMeaningReversedPath =
+            this.content.cardMeaningReversedArrayPath ||
+            "card_meaning_reversed_array";
 
-        console.log(
-          `[Tarot Card Reader] v${this.version} - API response data:`,
-          data
-        );
-
-        if (!Array.isArray(data)) {
-          console.warn(
-            `[Tarot Card Reader] v${this.version} - API response is not an array:`,
-            data
-          );
-          data = [data];
-        }
-
-        const tarotCards = data.map((post) => {
-          let cardNumber = "0";
-          if (
-            post["toolset-meta"] &&
-            post["toolset-meta"]["card-info"] &&
-            post["toolset-meta"]["card-info"]["card-number"] &&
-            post["toolset-meta"]["card-info"]["card-number"]["raw"]
-          ) {
-            cardNumber =
-              post["toolset-meta"]["card-info"]["card-number"]["raw"];
-          }
-
-          return {
-            id: post.id.toString(),
-            title: post.title.rendered || "Unnamed Card",
-            cardNumber: cardNumber,
-            featuredMediaId: post.featured_media || null,
-            imageUrl: null,
+          // Helper function to get nested property value
+          const getNestedProperty = (obj, path) => {
+            return path.split(".").reduce((acc, part) => acc && acc[part], obj);
           };
-        });
 
-        console.log(
-          `[Tarot Card Reader] v${this.version} - Processed ${tarotCards.length} cards from API`
-        );
+          // Map the bound data to the expected format
+          const tarotCards = this.content.cardsData.map((card, index) => {
+            const mappedCard = {
+              id: card.id ? card.id.toString() : index.toString(),
+              title: getNestedProperty(card, titlePath) || "Unnamed Card",
+              cardNumber:
+                getNestedProperty(card, numberPath) || index.toString(),
+              imageUrl: getNestedProperty(card, imagePath) || null,
+              cardMeaning: getNestedProperty(card, meaningPath) || "",
+              cardDescription: getNestedProperty(card, descriptionPath) || "",
+              long_description:
+                getNestedProperty(card, longDescriptionPath) || "",
+              description_reversed:
+                getNestedProperty(card, descriptionReversedPath) || "",
+              card_meaning: getNestedProperty(card, cardMeaningPath) || [],
+              card_meaning_reversed:
+                getNestedProperty(card, cardMeaningReversedPath) || [],
+              featuredMediaId: null, // Not needed when using direct URLs
+            };
 
-        if (tarotCards.length === 0) {
+            console.log(
+              `[Tarot Card Reader] Mapped card ${index}:`,
+              mappedCard
+            );
+
+            return mappedCard;
+          });
+
+          console.log(
+            `[Tarot Card Reader] v${this.version} - Processed ${tarotCards.length} cards from bound data`
+          );
+
+          return tarotCards.sort(
+            (a, b) => parseInt(a.cardNumber) - parseInt(b.cardNumber)
+          );
+        } else {
           console.warn(
-            `[Tarot Card Reader] v${this.version} - No cards received from API, using fallback data`
+            `[Tarot Card Reader] v${this.version} - No bound cards data available, using fallback data`
           );
           return this.createFallbackCards();
         }
-
-        return tarotCards.sort(
-          (a, b) => parseInt(a.cardNumber) - parseInt(b.cardNumber)
-        );
       } catch (error) {
         console.error(
-          `[Tarot Card Reader] v${this.version} - Error fetching tarot cards:`,
+          `[Tarot Card Reader] v${this.version} - Error processing bound cards:`,
           error
         );
         console.log(
-          `[Tarot Card Reader] v${this.version} - Using fallback cards due to API error`
+          `[Tarot Card Reader] v${this.version} - Using fallback cards due to error`
         );
         return this.createFallbackCards();
       }
@@ -1179,6 +1195,15 @@ export default {
           card.dataset.tarotId = tarotCard.id;
           card.dataset.cardNumber = tarotCard.cardNumber;
           card.dataset.title = tarotCard.title;
+          card.dataset.longDescription = tarotCard.long_description || "";
+          card.dataset.descriptionReversed =
+            tarotCard.description_reversed || "";
+          card.dataset.cardMeaning = JSON.stringify(
+            tarotCard.card_meaning || []
+          );
+          card.dataset.cardMeaningReversed = JSON.stringify(
+            tarotCard.card_meaning_reversed || []
+          );
 
           // Handle image URL assignment
           if (tarotCard.imageUrl) {
@@ -2066,6 +2091,14 @@ export default {
               imageUrl: card.dataset.imageUrl || null,
               index: i,
               cardFlipped: isCardFlipped,
+              long_description: card.dataset.longDescription || "",
+              description_reversed: card.dataset.descriptionReversed || "",
+              card_meaning: card.dataset.cardMeaning
+                ? JSON.parse(card.dataset.cardMeaning)
+                : [],
+              card_meaning_reversed: card.dataset.cardMeaningReversed
+                ? JSON.parse(card.dataset.cardMeaningReversed)
+                : [],
             });
 
             // Get first bounds before any DOM changes
@@ -2315,6 +2348,10 @@ export default {
               imageUrl: card.imageUrl,
               index: card.index,
               cardFlipped: card.cardFlipped,
+              long_description: card.long_description,
+              description_reversed: card.description_reversed,
+              card_meaning: card.card_meaning,
+              card_meaning_reversed: card.card_meaning_reversed,
             }));
 
             // Update our internal state

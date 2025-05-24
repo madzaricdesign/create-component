@@ -243,6 +243,90 @@ export default {
           "Select which property from your cards to use as the card description",
       } /* wwEditor:end */,
     },
+    cardLongDescriptionPath: {
+      label: { en: "Long Description Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "long_description",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for long descriptions. Format: string (e.g. "long_description")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the long description",
+      } /* wwEditor:end */,
+    },
+    cardDescriptionReversedPath: {
+      label: { en: "Reversed Description Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "description_reversed",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for reversed descriptions. Format: string (e.g. "description_reversed")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the reversed description",
+      } /* wwEditor:end */,
+    },
+    cardMeaningArrayPath: {
+      label: { en: "Card Meanings Array Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_meaning_array",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for card meanings array. Format: string (e.g. "card_meaning_array")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the meanings array",
+      } /* wwEditor:end */,
+    },
+    cardMeaningReversedArrayPath: {
+      label: { en: "Reversed Meanings Array Property" },
+      type: "ObjectPropertyPath",
+      section: "Data",
+      bindable: true,
+      options: (content) => ({ object: content.cardsData?.[0] || {} }),
+      defaultValue: "card_meaning_reversed_array",
+      hidden: (content, sidepanelContent, boundProps) =>
+        !Array.isArray(content.cardsData) ||
+        !content.cardsData?.length ||
+        !boundProps.cardsData,
+      /* wwEditor:start */ bindingValidation: {
+        type: "string",
+        tooltip:
+          'The property path to use for reversed meanings array. Format: string (e.g. "card_meaning_reversed_array")',
+      },
+      propertyHelp: {
+        tooltip:
+          "Select which property from your cards to use as the reversed meanings array",
+      } /* wwEditor:end */,
+    },
     defaultCardOption: {
       label: {
         en: "Number of Cards",
@@ -345,6 +429,10 @@ export default {
             imageUrl: "",
             index: 0,
             cardFlipped: false,
+            long_description: "",
+            description_reversed: "",
+            card_meaning: [],
+            card_meaning_reversed: [],
           },
           options: {
             title: {
@@ -388,6 +476,46 @@ export default {
               },
               type: "Boolean",
               defaultValue: false,
+            },
+            long_description: {
+              label: {
+                en: "Long Description",
+              },
+              type: "Text",
+              defaultValue: "",
+            },
+            description_reversed: {
+              label: {
+                en: "Reversed Description",
+              },
+              type: "Text",
+              defaultValue: "",
+            },
+            card_meaning: {
+              label: {
+                en: "Card Meanings",
+              },
+              type: "Array",
+              defaultValue: [],
+              options: {
+                item: {
+                  type: "Text",
+                  defaultValue: "",
+                },
+              },
+            },
+            card_meaning_reversed: {
+              label: {
+                en: "Reversed Card Meanings",
+              },
+              type: "Array",
+              defaultValue: [],
+              options: {
+                item: {
+                  type: "Text",
+                  defaultValue: "",
+                },
+              },
             },
           },
         },
