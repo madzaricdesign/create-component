@@ -423,6 +423,35 @@ export default {
         en: "The text shown on the deck overlay when hovering",
       },
     },
+    overlayTextColor: {
+      label: {
+        en: "Deck Overlay Text Color",
+      },
+      type: "Color",
+      defaultValue: "#ffffff",
+      section: "Content",
+      bindable: true,
+      description: {
+        en: "The color of the text shown on the deck overlay",
+      },
+    },
+    overlayTextSize: {
+      label: {
+        en: "Deck Overlay Text Size",
+      },
+      type: "Number",
+      defaultValue: 14,
+      section: "Content",
+      bindable: true,
+      options: {
+        min: 8,
+        max: 32,
+        step: 1,
+      },
+      description: {
+        en: "The font size of the text shown on the deck overlay (in pixels)",
+      },
+    },
     resultCards: {
       label: {
         en: "Result Cards",

@@ -188,6 +188,8 @@ export default {
           ? `${this.content.titleFontSize}px`
           : `min(14px, 2.8vw)`,
         "--title-color": this.content.titleColor || "#f8f0fc",
+        "--overlay-text-color": this.content.overlayTextColor || "#ffffff",
+        "--overlay-text-size": `${this.content.overlayTextSize || 14}px`,
       };
     },
     rootStyles() {
@@ -440,8 +442,31 @@ export default {
           if (overlaySpan) {
             overlaySpan.textContent = newValue || "Click to shuffle";
           } else {
-            // If no overlay exists, recreate it
             this.createDeckOverlay();
+          }
+        }
+      },
+      immediate: true,
+    },
+    "content.overlayTextColor": {
+      handler(newValue) {
+        if (this.$refs.deckElement) {
+          const overlaySpan =
+            this.$refs.deckElement.querySelector(".deck-overlay span");
+          if (overlaySpan) {
+            overlaySpan.style.color = newValue || "#ffffff";
+          }
+        }
+      },
+      immediate: true,
+    },
+    "content.overlayTextSize": {
+      handler(newValue) {
+        if (this.$refs.deckElement) {
+          const overlaySpan =
+            this.$refs.deckElement.querySelector(".deck-overlay span");
+          if (overlaySpan) {
+            overlaySpan.style.fontSize = `${newValue || 14}px`;
           }
         }
       },
@@ -701,6 +726,8 @@ export default {
     console.log(
       "[Tarot Card Reader] Added workflow helper function window.updateLoremFromTarot()"
     );
+
+    this.updateRootStyles();
   },
   beforeUnmount() {
     console.log(`[Tarot Card Reader] v${this.version} - Component unmounting`);
@@ -1353,6 +1380,9 @@ export default {
     createDeckOverlay() {
       if (!this.$refs.deckElement) return;
 
+      // Update root styles before creating overlay
+      this.updateRootStyles();
+
       // Remove any existing overlay first
       const existingOverlay =
         this.$refs.deckElement.querySelector(".deck-overlay");
@@ -1624,6 +1654,9 @@ export default {
         if (!this.hasInitialized && this.deckCards.length < 1) return;
 
         console.log("[Tarot Card Reader] Starting shuffle and deal sequence");
+
+        // Ensure styles are up to date before animation
+        this.updateRootStyles();
 
         // Remove the deck overlay before animation starts
         const existingOverlay =
@@ -3245,6 +3278,35 @@ export default {
         return false;
       }
     },
+
+    updateRootStyles() {
+      try {
+        const root = document.documentElement;
+        // Update all CSS variables
+        Object.entries(this.cssVars).forEach(([key, value]) => {
+          root.style.setProperty(key, value);
+        });
+        console.log("[Tarot Card Reader] Root styles updated");
+      } catch (err) {
+        console.error("[Tarot Card Reader] Error updating root styles:", err);
+      }
+    },
+
+    // Add watcher for content changes that affect styles
+    watch: {
+      "content.overlayTextColor": {
+        handler() {
+          this.updateRootStyles();
+        },
+        immediate: true,
+      },
+      "content.overlayTextSize": {
+        handler() {
+          this.updateRootStyles();
+        },
+        immediate: true,
+      },
+    },
   },
 };
 </script>
@@ -3639,13 +3701,13 @@ export default {
   align-items: center;
   justify-content: center;
   background-color: rgba(0, 0, 0, 0.6);
-  color: white;
+  color: var(--overlay-text-color);
   cursor: pointer;
   z-index: 100;
   border-radius: 8px;
   transition: background-color 0.2s ease;
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
-  font-size: min(14px, 3vw);
+  font-size: var(--overlay-text-size);
   font-weight: bold;
   box-sizing: border-box;
 }
