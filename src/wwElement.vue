@@ -32,13 +32,17 @@
             transform: `translate(${index * 0.1}px, ${index * 0.1}px) rotate(${
               index * 0.1
             }deg)`,
-          }" />
-
-        <div
-          v-if="!isAnimating && visibleDeckCards.length > 0"
-          class="deck-overlay"
-          @click="handleShuffle">
-          <span :style="overlayTextStyles">{{ content.overlayText }}</span>
+          }">
+          <div
+            v-if="
+              !isAnimating &&
+              visibleDeckCards.length > 0 &&
+              index === visibleDeckCards.length - 1
+            "
+            class="deck-overlay"
+            @click="handleShuffle">
+            <span :style="overlayTextStyles">{{ content.overlayText }}</span>
+          </div>
         </div>
       </div>
 
@@ -52,6 +56,10 @@
             :key="`placeholder-${i}`"
             class="card-placeholder"
             :class="`position-${i}`">
+            <!-- Position label always on top, outside the card -->
+            <div v-if="positionLabels[i]" class="position-label">
+              {{ positionLabels[i] }}
+            </div>
             <!-- Dealt card if exists -->
             <div
               v-if="dealtCards[i - 1]"
@@ -62,19 +70,16 @@
                 backgroundImage: dealtCards[i - 1].imageUrl
                   ? `url('${dealtCards[i - 1].imageUrl}')`
                   : '',
-              }" />
+              }"></div>
             <div v-if="dealtCards[i - 1]" class="card-title">
               {{ dealtCards[i - 1].title }}
-            </div>
-            <div v-if="positionLabels[i]" class="position-label">
-              {{ positionLabels[i] }}
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Controls -->
+    <!-- Controls (button) below the game-area) -->
     <div v-show="!isLoading" class="controls">
       <button
         class="shuffle-button"
@@ -114,7 +119,7 @@ export default {
       isAnimating: false,
       allCards: [],
       visibleDeckCards: [],
-      dealtCards: this.content.resultCards || [],
+      dealtCards: [],
       hasInitialized: false,
     };
   },
@@ -160,12 +165,12 @@ export default {
         backgroundColor: this.content.backgroundColor || "#38074a",
         minHeight: this.content.minHeight
           ? `${this.content.minHeight}px`
-          : "450px",
+          : undefined,
+        width: "100%",
+        height: "auto",
       };
     },
     gameAreaStyles() {
-      const minHeight =
-        this.content.cardPattern === "relationship" ? "600px" : "400px";
       return {
         border: `2px solid ${this.content.deckBorderColor || "#9e15bf"}`,
         background: `linear-gradient(135deg, ${this.adjustColor(
@@ -176,8 +181,11 @@ export default {
           -15
         )})`,
         borderRadius: "10px",
-        minHeight: minHeight,
-        height: this.content.cardPattern === "relationship" ? "auto" : "400px",
+        width: "100%",
+        height: this.content.gameAreaHeight
+          ? `${this.content.gameAreaHeight}px`
+          : "400px",
+        minHeight: 0,
       };
     },
     overlayTextStyles() {
@@ -211,23 +219,6 @@ export default {
     },
   },
   watch: {
-    dealtCards: {
-      handler(newVal, oldVal) {
-        // Skip if no actual change
-        if (JSON.stringify(newVal) === JSON.stringify(oldVal)) return;
-
-        // Emit update only if value changed
-        if (
-          JSON.stringify(newVal) !== JSON.stringify(this.content.resultCards)
-        ) {
-          this.$emit("update:content", {
-            ...this.content,
-            resultCards: newVal || [],
-          });
-        }
-      },
-      deep: true,
-    },
     "content.cardsData": {
       handler(newVal) {
         if (newVal && Array.isArray(newVal)) {
@@ -236,29 +227,8 @@ export default {
       },
       immediate: true,
     },
-    "content.resultCards": {
-      handler(newVal) {
-        if (
-          newVal &&
-          Array.isArray(newVal) &&
-          JSON.stringify(newVal) !== JSON.stringify(this.dealtCards)
-        ) {
-          this.dealtCards = [...newVal];
-        }
-      },
-      deep: true,
-      immediate: true,
-    },
   },
-  created() {
-    // Initialize resultCards if not set
-    if (!this.content.resultCards) {
-      this.$emit("update:content", {
-        ...this.content,
-        resultCards: [],
-      });
-    }
-  },
+  created() {},
 
   mounted() {
     setTimeout(() => {
@@ -382,11 +352,6 @@ export default {
       // Clear previous cards
       if (this.dealtCards.length > 0) {
         this.dealtCards = [];
-        // Emit update to clear resultCards
-        this.$emit("update:content", {
-          ...this.content,
-          resultCards: [],
-        });
         this.$emit("trigger-event", { name: "cards-cleared", event: {} });
       }
 
@@ -493,12 +458,6 @@ export default {
       // Update dealt cards
       this.dealtCards = newDealtCards;
 
-      // Explicitly emit the update to ensure binding works
-      this.$emit("update:content", {
-        ...this.content,
-        resultCards: newDealtCards,
-      });
-
       // Wait for DOM update
       await this.$nextTick();
 
@@ -558,15 +517,6 @@ export default {
 
       // Emit event and final update after animation
       setTimeout(() => {
-        // Force update the component's content
-        const updatedContent = {
-          ...this.content,
-          resultCards: [...this.dealtCards],
-        };
-
-        // Emit the update
-        this.$emit("update:content", updatedContent);
-
         this.$emit("trigger-event", {
           name: "cards-dealt",
           event: {
@@ -586,6 +536,7 @@ export default {
   flex-direction: column;
   align-items: center;
   width: 100%;
+  height: auto;
   min-height: 450px;
   padding: 20px;
   box-sizing: border-box;
@@ -595,7 +546,7 @@ export default {
 .game-area {
   position: relative;
   width: 100%;
-  height: 400px;
+  min-height: 0;
   border-radius: 10px;
   margin-bottom: 20px;
   overflow: hidden;
@@ -626,14 +577,15 @@ export default {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.6);
-    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.55);
+    border-radius: inherit;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    z-index: 1000;
+    z-index: 10;
     transition: background-color 0.2s;
+    overflow: hidden;
 
     &:hover {
       background-color: rgba(0, 0, 0, 0.8);
@@ -644,18 +596,22 @@ export default {
       font-size: var(--overlay-text-size);
       font-weight: bold;
       text-align: center;
-      padding: 10px;
+      padding: 12px 18px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
+      line-height: 1.2;
+      pointer-events: none;
     }
   }
 }
 
 .player-hand-area {
   position: absolute;
-  bottom: 20px;
+  bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
   width: 95%;
-  min-height: 200px;
 }
 
 .placeholders-container {
@@ -665,60 +621,6 @@ export default {
   gap: 15px;
   width: 100%;
   position: relative;
-  min-height: 200px;
-
-  // Simple pattern (3 cards in a row)
-  &.pattern-simple {
-    flex-direction: row;
-  }
-
-  // Relationship pattern (7 cards in specific layout)
-  &.pattern-relationship {
-    display: grid;
-    grid-template-columns: repeat(3, 120px);
-    grid-template-rows: repeat(3, 168px);
-    gap: 20px;
-    width: auto;
-    height: auto;
-    justify-content: center;
-    align-items: center;
-
-    .card-placeholder {
-      &.position-1 {
-        grid-column: 1;
-        grid-row: 1;
-      } // You - top left
-      &.position-2 {
-        grid-column: 3;
-        grid-row: 1;
-      } // Partner - top right
-      &.position-3 {
-        grid-column: 2;
-        grid-row: 1;
-      } // Relationship - top center
-      &.position-4 {
-        grid-column: 1;
-        grid-row: 2;
-      } // Your feelings - middle left
-      &.position-5 {
-        grid-column: 3;
-        grid-row: 2;
-      } // Partner feelings - middle right
-      &.position-6 {
-        grid-column: 2;
-        grid-row: 2;
-      } // Challenge - center
-      &.position-7 {
-        grid-column: 2;
-        grid-row: 3;
-      } // Outcome - bottom center
-    }
-  }
-
-  // Custom pattern
-  &.pattern-custom {
-    flex-direction: row;
-  }
 }
 
 .card-placeholder {
@@ -729,9 +631,14 @@ export default {
   border-radius: 8px;
   background: var(--placeholder-background);
   box-shadow: 0px 2px 5px rgba(0, 0, 0, 0.1) inset;
+  overflow: visible;
 }
 
 .card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
   width: 120px;
   height: 168px;
   border-radius: 8px;
@@ -751,7 +658,7 @@ export default {
     background-size: cover;
     background-position: center;
     background-color: #f8f0fc;
-    border: 2px solid var(--deck-border-color);
+    border: none;
   }
 
   &.dealt-card {
@@ -795,16 +702,24 @@ export default {
 
 .position-label {
   position: absolute;
-  top: -25px;
+  top: 0;
   left: 0;
   width: 100%;
   text-align: center;
-  color: var(--title-color);
-  font-size: 12px;
-  font-weight: normal;
+  color: #fff;
+  font-size: 10px;
+  font-weight: bold;
   text-transform: uppercase;
-  opacity: 0.8;
-  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+  background: #1e0a2d;
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+  padding: 6px 0 4px 0;
+  letter-spacing: 1px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  opacity: 0.95;
+  pointer-events: none;
+  backface-visibility: hidden;
 }
 
 .controls {
@@ -933,22 +848,17 @@ export default {
   .card,
   .card-placeholder,
   .skeleton-card {
-    width: 90px;
-    height: 126px;
+    width: 70px;
+    height: 98px;
   }
-
   .deck-area {
-    width: 90px;
-    height: 126px;
+    width: 70px;
+    height: 98px;
   }
-
-  .placeholders-container {
-    gap: 10px;
-  }
-
-  .shuffle-button {
-    padding: 10px 20px;
-    font-size: 14px;
+  .placeholders-container.pattern-relationship {
+    grid-template-columns: repeat(3, 70px);
+    grid-template-rows: repeat(3, 98px);
+    gap: 8px;
   }
 }
 
@@ -966,9 +876,48 @@ export default {
     top: 10px;
     left: 10px;
   }
+}
 
-  .game-area {
-    height: 300px;
+// Relationship pattern (7 cards in specific layout)
+.pattern-relationship {
+  display: grid;
+  grid-template-columns: repeat(3, 120px);
+  grid-template-rows: repeat(3, 168px);
+  gap: 20px;
+  width: auto;
+  height: auto;
+  justify-content: center;
+  align-items: center;
+
+  .card-placeholder {
+    &.position-1 {
+      grid-column: 2;
+      grid-row: 2;
+    } // Center
+    &.position-2 {
+      grid-column: 3;
+      grid-row: 1;
+    } // Top right
+    &.position-3 {
+      grid-column: 3;
+      grid-row: 2;
+    } // Middle right
+    &.position-4 {
+      grid-column: 3;
+      grid-row: 3;
+    } // Bottom right
+    &.position-5 {
+      grid-column: 1;
+      grid-row: 3;
+    } // Bottom left
+    &.position-6 {
+      grid-column: 1;
+      grid-row: 2;
+    } // Middle left
+    &.position-7 {
+      grid-column: 1;
+      grid-row: 1;
+    } // Top left
   }
 }
 </style>

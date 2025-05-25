@@ -48,40 +48,6 @@ export default {
       },
       /* wwEditor:end */
     },
-    resultCards: {
-      label: { en: "Dealt Cards (Output)" },
-      type: "Array",
-      section: "settings",
-      bindable: true,
-      bindingDirection: "out",
-      defaultValue: [],
-      options: {
-        item: {
-          type: "Object",
-          defaultValue: {
-            id: "",
-            title: "",
-            cardNumber: "",
-            imageUrl: "",
-            description: "",
-            long_description: "",
-            description_reversed: "",
-            card_meaning: [],
-            card_meaning_reversed: [],
-            isFlipped: false,
-            index: 0,
-          },
-        },
-      },
-      /* wwEditor:start */
-      hidden: false,
-      bindingValidation: {
-        type: "array",
-        tooltip:
-          "Output binding: This will contain the dealt cards after shuffling. Bind this to a variable to access the dealt cards data.",
-      },
-      /* wwEditor:end */
-    },
 
     // Card Pattern Section
     cardPattern: {
@@ -295,6 +261,18 @@ export default {
       },
       states: true,
       classes: true,
+    },
+    gameAreaHeight: {
+      label: { en: "Game Area Height" },
+      type: "Number",
+      section: "layout",
+      defaultValue: 400,
+      options: {
+        min: 100,
+        max: 1200,
+        step: 10,
+      },
+      bindable: true,
     },
 
     // Debug
