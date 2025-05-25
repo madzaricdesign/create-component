@@ -377,22 +377,24 @@ export default {
     async animateShuffle() {
       if (!this.$refs.gameArea || !this.$refs.deckElement) return;
 
-      const gameAreaRect = this.$refs.gameArea.getBoundingClientRect();
-      const centerX = gameAreaRect.width / 2 - 60;
+      const gameAreaRect = this.$refs.gameArea?.getBoundingClientRect?.();
+      const centerX = gameAreaRect ? gameAreaRect.width / 2 - 60 : 0;
       const centerY = 100;
 
       // Move deck to center
-      await gsap.to(this.$refs.deckElement, {
-        x: centerX - 20,
-        y: centerY - 20,
-        duration: 0.4,
-        ease: "power2.inOut",
-      });
+      if (this.$refs.deckElement) {
+        await gsap.to(this.$refs.deckElement, {
+          x: centerX - 20,
+          y: centerY - 20,
+          duration: 0.4,
+          ease: "power2.inOut",
+        });
+      }
 
       // Get deck card elements
       const deckCardElements = [];
       for (let i = 0; i < this.visibleDeckCards.length; i++) {
-        if (this.$refs[`deckCard${i}`]) {
+        if (this.$refs[`deckCard${i}`] && this.$refs[`deckCard${i}`][0]) {
           deckCardElements.push(this.$refs[`deckCard${i}`][0]);
         }
       }
@@ -462,10 +464,14 @@ export default {
       await this.$nextTick();
 
       // Animate dealt cards from deck position to their placeholders
-      const deckRect = this.$refs.deckElement.getBoundingClientRect();
+      const deckRect = this.$refs.deckElement?.getBoundingClientRect?.();
 
       for (let i = 0; i < newDealtCards.length; i++) {
-        if (this.$refs[`dealtCard${i}`] && this.$refs[`dealtCard${i}`][0]) {
+        if (
+          this.$refs[`dealtCard${i}`] &&
+          this.$refs[`dealtCard${i}`][0] &&
+          deckRect
+        ) {
           const cardEl = this.$refs[`dealtCard${i}`][0];
           const cardRect = cardEl.getBoundingClientRect();
 
@@ -507,12 +513,14 @@ export default {
 
       // Move deck back to original position
       setTimeout(async () => {
-        await gsap.to(this.$refs.deckElement, {
-          x: 0,
-          y: 0,
-          duration: 0.4,
-          ease: "back.out(1.2)",
-        });
+        if (this.$refs.deckElement) {
+          await gsap.to(this.$refs.deckElement, {
+            x: 0,
+            y: 0,
+            duration: 0.4,
+            ease: "back.out(1.2)",
+          });
+        }
       }, 300);
 
       // Emit event and final update after animation
@@ -526,6 +534,14 @@ export default {
         });
       }, 1200);
     },
+  },
+  beforeUnmount() {
+    // Kill all GSAP tweens/timelines to prevent accessing null refs after unmount
+    if (window.gsap && window.gsap.globalTimeline) {
+      window.gsap.globalTimeline.clear();
+    }
+    // If you have custom timeouts/intervals, clear them here
+    // Example: clearTimeout(this.myTimeout);
   },
 };
 </script>
