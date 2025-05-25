@@ -399,6 +399,9 @@ export default {
         // Deal cards
         await this.dealCards();
 
+        // Restore deck after dealing
+        this.visibleDeckCards = [...this.allCards];
+
         this.isAnimating = false;
       } catch (error) {
         console.error("Error during shuffle:", error);

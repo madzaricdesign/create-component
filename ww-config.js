@@ -4,6 +4,17 @@ export default {
       en: "Tarot Card Reader",
     },
     icon: "cards",
+    customSettingsPropertiesOrder: [
+      ["cardsData", "cardPattern", "numberOfCards", "resultCards"],
+      [
+        "buttonText",
+        "overlayText",
+        "enableCardFlipping",
+        "cardFlipProbability",
+        "maxFlippedCards",
+      ],
+      ["showDebugInfo"],
+    ],
   },
   properties: {
     // Data Section
@@ -75,7 +86,7 @@ export default {
     // Card Pattern Section
     cardPattern: {
       label: { en: "Card Pattern" },
-      type: "Enum",
+      type: "TextSelect",
       section: "settings",
       bindable: false,
       defaultValue: "simple",
@@ -86,6 +97,13 @@ export default {
           { value: "custom", label: { en: "Custom" } },
         ],
       },
+      /* wwEditor:start */
+      bindingValidation: {
+        type: "string",
+        tooltip:
+          "Select the pattern for card layout: Simple (3 cards), Relationship (7 cards), or Custom",
+      },
+      /* wwEditor:end */
     },
     numberOfCards: {
       label: { en: "Number of Cards" },
