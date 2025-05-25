@@ -2676,10 +2676,11 @@ export default {
       // Create a container with grid layout
       const placeholdersContainer = document.createElement("div");
       placeholdersContainer.style.display = "grid";
-      placeholdersContainer.style.gridTemplateColumns = "1fr 1fr 1fr";
+      placeholdersContainer.style.gridTemplateColumns = "auto";
       placeholdersContainer.style.gridTemplateRows = "1fr 1fr 1fr";
       placeholdersContainer.style.gap = "30px 10px";
       placeholdersContainer.style.padding = "0";
+      placeholdersContainer.style.marginBottom = "50px";
       playerHandElement.appendChild(placeholdersContainer);
 
       // Card positions in the grid based on the screenshot pattern
