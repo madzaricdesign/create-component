@@ -71,6 +71,22 @@ export default {
       },
       /* wwEditor:end */
     },
+
+    // Card Pattern Section
+    cardPattern: {
+      label: { en: "Card Pattern" },
+      type: "Enum",
+      section: "settings",
+      bindable: false,
+      defaultValue: "simple",
+      options: {
+        options: [
+          { value: "simple", label: { en: "Simple (3 cards)" } },
+          { value: "relationship", label: { en: "Relationship (7 cards)" } },
+          { value: "custom", label: { en: "Custom" } },
+        ],
+      },
+    },
     numberOfCards: {
       label: { en: "Number of Cards" },
       type: "Number",
@@ -82,6 +98,7 @@ export default {
         max: 9,
         step: 1,
       },
+      hidden: (content) => content.cardPattern !== "custom",
     },
 
     // Appearance Section

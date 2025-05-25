@@ -5,7 +5,7 @@
       <div class="skeleton-deck"></div>
       <div class="skeleton-placeholders">
         <div
-          v-for="i in content.numberOfCards"
+          v-for="i in actualNumberOfCards"
           :key="`skeleton-${i}`"
           class="skeleton-card"
           :style="{ '--i': i }" />
@@ -44,11 +44,14 @@
 
       <!-- Player hand area -->
       <div ref="playerHandElement" class="player-hand-area">
-        <div class="placeholders-container">
+        <div
+          class="placeholders-container"
+          :class="`pattern-${content.cardPattern || 'simple'}`">
           <div
-            v-for="i in content.numberOfCards"
+            v-for="i in actualNumberOfCards"
             :key="`placeholder-${i}`"
-            class="card-placeholder">
+            class="card-placeholder"
+            :class="`position-${i}`">
             <!-- Dealt card if exists -->
             <div
               v-if="dealtCards[i - 1]"
@@ -62,6 +65,9 @@
               }" />
             <div v-if="dealtCards[i - 1]" class="card-title">
               {{ dealtCards[i - 1].title }}
+            </div>
+            <div v-if="positionLabels[i]" class="position-label">
+              {{ positionLabels[i] }}
             </div>
           </div>
         </div>
@@ -113,6 +119,19 @@ export default {
     };
   },
   computed: {
+    actualNumberOfCards() {
+      // Return number of cards based on pattern
+      switch (this.content.cardPattern) {
+        case "simple":
+          return 3;
+        case "relationship":
+          return 7;
+        case "custom":
+          return this.content.numberOfCards || 3;
+        default:
+          return this.content.numberOfCards || 3;
+      }
+    },
     isEditing() {
       /* wwEditor:start */
       return this.wwEditorState?.editMode === true;
@@ -145,6 +164,8 @@ export default {
       };
     },
     gameAreaStyles() {
+      const minHeight =
+        this.content.cardPattern === "relationship" ? "600px" : "400px";
       return {
         border: `2px solid ${this.content.deckBorderColor || "#9e15bf"}`,
         background: `linear-gradient(135deg, ${this.adjustColor(
@@ -155,7 +176,8 @@ export default {
           -15
         )})`,
         borderRadius: "10px",
-        minHeight: "300px",
+        minHeight: minHeight,
+        height: this.content.cardPattern === "relationship" ? "auto" : "400px",
       };
     },
     overlayTextStyles() {
@@ -172,6 +194,20 @@ export default {
         hasData: !!this.content.cardsData,
         dataLength: this.content.cardsData?.length || 0,
       };
+    },
+    positionLabels() {
+      if (this.content.cardPattern === "relationship") {
+        return {
+          1: "You",
+          2: "Partner",
+          3: "Relationship",
+          4: "Your Feelings",
+          5: "Partner's Feelings",
+          6: "Challenge",
+          7: "Outcome",
+        };
+      }
+      return {};
     },
   },
   watch: {
@@ -421,7 +457,7 @@ export default {
 
     async dealCards() {
       const numCards = Math.min(
-        this.content.numberOfCards || 3,
+        this.actualNumberOfCards,
         this.visibleDeckCards.length
       );
 
@@ -625,6 +661,61 @@ export default {
   justify-content: center;
   gap: 15px;
   width: 100%;
+  position: relative;
+  min-height: 200px;
+
+  // Simple pattern (3 cards in a row)
+  &.pattern-simple {
+    flex-direction: row;
+  }
+
+  // Relationship pattern (7 cards in specific layout)
+  &.pattern-relationship {
+    display: grid;
+    grid-template-columns: repeat(3, 120px);
+    grid-template-rows: repeat(3, 168px);
+    gap: 20px;
+    width: auto;
+    height: auto;
+    justify-content: center;
+    align-items: center;
+
+    .card-placeholder {
+      &.position-1 {
+        grid-column: 1;
+        grid-row: 1;
+      } // You - top left
+      &.position-2 {
+        grid-column: 3;
+        grid-row: 1;
+      } // Partner - top right
+      &.position-3 {
+        grid-column: 2;
+        grid-row: 1;
+      } // Relationship - top center
+      &.position-4 {
+        grid-column: 1;
+        grid-row: 2;
+      } // Your feelings - middle left
+      &.position-5 {
+        grid-column: 3;
+        grid-row: 2;
+      } // Partner feelings - middle right
+      &.position-6 {
+        grid-column: 2;
+        grid-row: 2;
+      } // Challenge - center
+      &.position-7 {
+        grid-column: 2;
+        grid-row: 3;
+      } // Outcome - bottom center
+    }
+  }
+
+  // Custom pattern
+  &.pattern-custom {
+    flex-direction: row;
+  }
 }
 
 .card-placeholder {
@@ -696,6 +787,20 @@ export default {
   color: var(--title-color);
   font-size: var(--title-font-size);
   font-weight: bold;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+
+.position-label {
+  position: absolute;
+  top: -25px;
+  left: 0;
+  width: 100%;
+  text-align: center;
+  color: var(--title-color);
+  font-size: 12px;
+  font-weight: normal;
+  text-transform: uppercase;
+  opacity: 0.8;
   text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
 }
 
