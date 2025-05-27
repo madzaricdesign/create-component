@@ -650,7 +650,7 @@ export default {
 
 .player-hand-area {
   position: absolute;
-  bottom: 40px;
+  bottom: 50px;
   left: 50%;
   transform: translateX(-50%);
   width: 95%;
