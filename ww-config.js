@@ -304,7 +304,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 1 > numCards;
+      },
     },
     // Position 2 Label
     position2Label: {
@@ -313,7 +321,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 2 > numCards;
+      },
     },
     // Position 3 Label
     position3Label: {
@@ -322,7 +338,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 3 > numCards;
+      },
     },
     // Position 4 Label
     position4Label: {
@@ -331,7 +355,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 4 > numCards;
+      },
     },
     // Position 5 Label
     position5Label: {
@@ -340,7 +372,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 5 > numCards;
+      },
     },
     // Position 6 Label
     position6Label: {
@@ -349,7 +389,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 6 > numCards;
+      },
     },
     // Position 7 Label
     position7Label: {
@@ -358,7 +406,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 7 > numCards;
+      },
     },
     // Position 8 Label
     position8Label: {
@@ -367,7 +423,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 8 > numCards;
+      },
     },
     // Position 9 Label
     position9Label: {
@@ -376,7 +440,15 @@ export default {
       section: "settings",
       defaultValue: "",
       bindable: true,
-      hidden: (content) => !content.enablePositionLabels,
+      hidden: (content) => {
+        if (!content.enablePositionLabels) return true;
+        let numCards = 3;
+        if (content.cardPattern === "relationship") numCards = 7;
+        else if (content.cardPattern === "custom")
+          numCards = content.numberOfCards || 3;
+        else if (content.cardPattern === "simple") numCards = 3;
+        return 9 > numCards;
+      },
     },
   },
   triggerEvents: [
