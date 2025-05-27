@@ -204,18 +204,44 @@ export default {
       };
     },
     positionLabels() {
-      if (this.content.cardPattern === "relationship") {
-        return {
-          1: "You",
-          2: "Partner",
-          3: "Relationship",
-          4: "Your Feelings",
-          5: "Partner's Feelings",
-          6: "Challenge",
-          7: "Outcome",
-        };
+      // If position labels are not enabled, return empty object
+      if (!this.content.enablePositionLabels) {
+        return {};
       }
-      return {};
+
+      // Only return labels for the actual number of cards
+      const labels = {};
+      const numCards = this.actualNumberOfCards;
+      for (let i = 1; i <= numCards; i++) {
+        const label = this.content[`position${i}Label`];
+        if (label && label.trim() !== "") {
+          labels[i] = label;
+        }
+      }
+
+      // If no custom labels are set, use defaults based on pattern
+      if (Object.keys(labels).length === 0) {
+        if (this.content.cardPattern === "relationship") {
+          return {
+            1: "You",
+            2: "Partner",
+            3: "Relationship",
+            4: "Your Feelings",
+            5: "Partner's Feelings",
+            6: "Challenge",
+            7: "Outcome",
+          };
+        } else if (this.content.cardPattern === "simple") {
+          return {
+            1: "Past",
+            2: "Present",
+            3: "Future",
+          };
+        }
+      }
+
+      // Only return labels for the number of cards in the spread
+      return labels;
     },
   },
   watch: {

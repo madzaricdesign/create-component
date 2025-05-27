@@ -288,6 +288,96 @@ export default {
       editorOnly: true,
       /* wwEditor:end */
     },
+
+    // Position Labels
+    enablePositionLabels: {
+      label: { en: "Enable Position Labels" },
+      type: "OnOff",
+      section: "settings",
+      defaultValue: false,
+      bindable: true,
+    },
+    // Position 1 Label
+    position1Label: {
+      label: { en: "Position 1 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 2 Label
+    position2Label: {
+      label: { en: "Position 2 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 3 Label
+    position3Label: {
+      label: { en: "Position 3 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 4 Label
+    position4Label: {
+      label: { en: "Position 4 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 5 Label
+    position5Label: {
+      label: { en: "Position 5 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 6 Label
+    position6Label: {
+      label: { en: "Position 6 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 7 Label
+    position7Label: {
+      label: { en: "Position 7 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 8 Label
+    position8Label: {
+      label: { en: "Position 8 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
+    // Position 9 Label
+    position9Label: {
+      label: { en: "Position 9 Label" },
+      type: "Text",
+      section: "settings",
+      defaultValue: "",
+      bindable: true,
+      hidden: (content) => !content.enablePositionLabels,
+    },
   },
   triggerEvents: [
     {
