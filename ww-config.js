@@ -273,6 +273,9 @@ export default {
         step: 10,
       },
       bindable: true,
+      states: true,
+      classes: true,
+      responsive: true,
     },
 
     // Debug
