@@ -551,11 +551,19 @@ export default {
 
       // Emit event and final update after animation
       setTimeout(() => {
+        // Attach only custom position labels (no defaults)
+        const cardsWithLabels = this.dealtCards.map((card, idx) => {
+          const label = this.content[`position${idx + 1}Label`];
+          return {
+            ...card,
+            positionLabel: label && label.trim() !== "" ? label : "",
+          };
+        });
         this.$emit("trigger-event", {
           name: "cards-dealt",
           event: {
-            cards: this.dealtCards,
-            count: this.dealtCards.length,
+            cards: cardsWithLabels,
+            count: cardsWithLabels.length,
           },
         });
       }, 1200);
